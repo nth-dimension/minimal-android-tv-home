@@ -1,0 +1,30 @@
+# What is actually disabled on the Sony BRAVIA VH21, picked by the owner from sony-bravia-vh21.txt.
+# Applied 2026-10-20. Help (customersupport, smarthelp) kept on purpose.
+#
+# Undo:  scripts/debloat.sh debloat/sony-bravia-vh21-applied.txt --undo
+
+# Batch 1: ads, promos and auto-installs
+com.sony.dtv.sonyselect                        # Sony Select promo tile
+com.sony.dtv.sonytab                           # Sony tab on the Google TV home
+com.sony.dtv.launcherxcustomizer               # Sony config for the Google TV home
+com.sony.dtv.promos
+android.autoinstalls.config.sony.bravia        # Play auto-installs partner apps
+
+# Batch 2: retail store demo
+com.sony.dtv.demosupport
+com.sony.dtv.demosystemsupport
+com.sony.dtv.multiscreendemo
+
+# Batch 3: hotel / pro mode
+com.sony.dtv.b2b.hotelmode
+com.sony.dtv.b2b.noderuntime.normal
+com.sony.dtv.b2b.noderuntime.privilege
+com.sony.dtv.b2b.noderuntimeextension.bpk
+
+# Batch 4: BRAVIA CAM features. They grab any USB camera for gestures and distance alerts, which
+# blocked WhatsApp TV's video. Disabled 2026-10-20 while making video calls work.
+com.sony.dtv.gestureapp
+com.sony.dtv.distancealert
+com.sony.dtv.sensingfusionservice
+com.sony.dtv.sensingcamera.settings
+com.sony.dtv.sensingcamera.fwupdate

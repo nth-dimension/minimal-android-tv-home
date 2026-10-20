@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 banner: a plain green tile with a speech bubble. No WhatsApp branding. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path android:fillColor="#1F2C34" android:pathData="M0,0h320v180h-320z" />
+    <path
+        android:fillColor="#25D366"
+        android:pathData="M160,48c-27.6,0 -50,19.7 -50,44c0,11.4 4.9,21.8 13,29.6l-5,18.4l20.2,-9.2c6.6,3.4 14.1,5.2 21.8,5.2c27.6,0 50,-19.7 50,-44s-22.4,-44 -50,-44z" />
+</vector>

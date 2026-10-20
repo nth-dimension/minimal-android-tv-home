@@ -1,0 +1,70 @@
+# Sony BRAVIA 4K VH21 (BRAVIA_VH21_M_PA), Google TV, Android 12 (API 31), build STT2.230505.001.S136.
+# Built from the Sony lists in github.com/Gathin23/cleanyourtv (MIT), checked against what is installed
+# and enabled on this TV on 2026-10-20.
+#
+# Apply:   scripts/debloat.sh debloat/sony-bravia-vh21.txt            (all batches)
+#          scripts/debloat.sh debloat/sony-bravia-vh21.txt --batch 1  (one batch)
+# Undo:    scripts/debloat.sh debloat/sony-bravia-vh21.txt --undo
+# Everything is DISABLED, not uninstalled. Comment out a line to keep that app.
+#
+# Kept on purpose, do not add: com.sony.dtv.tvx (Live TV and every HDMI input), com.sony.dtv.tvinput.*,
+# braviasync* (HDMI-CEC), tvapi, sonysystemservice, imeproxy, settingsprovider, systemupdate, all
+# com.mediatek.*, webapi.core (IP control). Also kept: Google Assistant and voice (katniss, assistantadapter;
+# Minimal Home's Search uses katniss for "All of Google TV"), Chromecast (apps.mediashell), the phone remote
+# (tv.remote.service), Apple TV (watched here), Sony Media Player (smartmediaapp, osat.music), and the
+# screensavers (apps.tv.dreamx, livingfit).
+# Already off on this TV: launcherx and setupwraith (by scripts/install.sh), b2b.softap,
+# b2b.vendorprotocol, kenhchonloc.
+
+# Batch 1: tracking and telemetry
+tv.samba.ssm                                   # Samba TV, fingerprints what's on screen (ACR)
+tv.samba.ssm.ui
+com.sony.dtv.da.service                        # Sony device agent / remote support
+com.qterics.da.product                         # Qterics device agent
+com.sonyericsson.idd.agent                     # Sony usage-data agent
+com.sony.dtv.sonybugreportsys
+com.google.android.feedback
+
+# Batch 2: home-screen ads, promos and auto-installs
+com.sony.dtv.sonyselect                        # Sony Select promo tile
+com.sony.dtv.sonytab                           # Sony tab on the Google TV home
+com.sony.dtv.launcherxcustomizer               # Sony config for the Google TV home
+com.sony.dtv.promos
+android.autoinstalls.config.sony.bravia        # Play auto-installs partner apps
+
+# Batch 3: retail demo and help
+com.sony.dtv.demosupport
+com.sony.dtv.demosystemsupport
+com.sony.dtv.multiscreendemo
+com.sony.dtv.customersupport                   # Help tile
+com.sony.dtv.smarthelp
+
+# Batch 4: hotel / pro mode (not a hotel TV)
+com.sony.dtv.b2b.hotelmode                     # always-running service with boot and periodic restarts
+com.sony.dtv.b2b.noderuntime.normal
+com.sony.dtv.b2b.noderuntime.privilege
+com.sony.dtv.b2b.noderuntimeextension.bpk
+
+# Batch 5: BRAVIA CAM features (no camera attached) and the notifications inbox
+com.sony.dtv.gestureapp
+com.sony.dtv.distancealert
+com.sony.dtv.sensingcamera.fwupdate
+com.sony.dtv.sensingcamera.settings
+com.sony.dtv.notificationcenter                # "BRAVIA notifications"
+
+# Batch 6: setup leftovers and unused services
+com.android.printspooler
+com.google.android.partnersetup                # install-attribution provider
+com.google.android.onetimeinitializer          # runs once after first setup
+com.sony.dtv.QuickSetupCustomizer
+com.google.android.syncadapters.calendar       # also carries Google's GrowthKit promo framework
+
+# Batch 7: preloaded apps you may not use (check before applying)
+com.sonypicturescore                           # BRAVIA CORE, with Conviva and Firebase analytics inside
+com.google.android.videos                      # Google TV movies and purchases
+com.google.android.play.games
+com.google.android.youtube.tvmusic             # YouTube Music
+com.sony.dtv.airplayapp                        # AirPlay from iPhones
+com.sony.huey.dlna.module                      # DLNA renderer; Media Player still plays USB files
+com.sony.huey.dlna.renderersettings
+com.sonyericsson.dlna

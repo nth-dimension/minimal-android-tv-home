@@ -1,0 +1,105 @@
+package dev.minimal.tvhome.data
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.core.graphics.scale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
+
+/**
+ * What apps played recently, recorded by [MediaListenerService] and shown in Up Next.
+ * Kept in memory and in a small JSON file; the service and the home screen share one process.
+ */
+object PlayHistory {
+    private const val FILE = "play_history.json"
+    private const val ART_DIR = "play_art"
+    private const val ART_WIDTH = 640
+
+    private val state = MutableStateFlow<List<PlayedItem>>(emptyList())
+    private var loaded = false
+
+    fun items(context: Context): StateFlow<List<PlayedItem>> {
+        ensureLoaded(context)
+        return state.asStateFlow()
+    }
+
+    @Synchronized
+    fun record(context: Context, item: PlayedItem) {
+        ensureLoaded(context)
+        val next = Ranking.upsertPlayed(state.value, item)
+        if (next == state.value) return
+        state.value = next
+        save(context, next)
+    }
+
+    /** Saves a scaled copy of the app's artwork and returns its file URI. Same title, same file. */
+    fun saveArt(context: Context, packageName: String, title: String, art: Bitmap): String? = runCatching {
+        val dir = File(context.filesDir, ART_DIR).apply { mkdirs() }
+        val file = File(dir, artName(packageName, title))
+        val scaled = if (art.width > ART_WIDTH) art.scale(ART_WIDTH, art.height * ART_WIDTH / art.width) else art
+        file.outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+        Uri.fromFile(file).toString()
+    }.getOrNull()
+
+    @Synchronized
+    private fun ensureLoaded(context: Context) {
+        if (loaded) return
+        loaded = true
+        state.value = runCatching { decode(File(context.filesDir, FILE).readText()) }.getOrDefault(emptyList())
+    }
+
+    private fun save(context: Context, items: List<PlayedItem>) {
+        runCatching {
+            val file = File(context.filesDir, FILE)
+            val tmp = File(context.filesDir, "$FILE.tmp")
+            tmp.writeText(encode(items))
+            tmp.renameTo(file)
+        }
+        // Drop artwork no entry refers to any more.
+        val keep = items.flatMap { it.imageUris }.mapNotNull { Uri.parse(it).lastPathSegment }.toSet()
+        File(context.filesDir, ART_DIR).listFiles()?.filter { it.name !in keep }?.forEach { it.delete() }
+    }
+
+    private fun artName(packageName: String, title: String): String {
+        val digest = MessageDigest.getInstance("SHA-1").digest("$packageName\u0000${title.lowercase()}".toByteArray())
+        return digest.joinToString("") { "%02x".format(it) }.take(24) + ".jpg"
+    }
+
+    fun encode(items: List<PlayedItem>): String = JSONArray().apply {
+        items.forEach { i ->
+            put(
+                JSONObject()
+                    .put("pkg", i.packageName)
+                    .put("title", i.title)
+                    .put("subtitle", i.subtitle ?: JSONObject.NULL)
+                    .put("images", JSONArray(i.imageUris))
+                    .put("pos", i.positionMillis)
+                    .put("dur", i.durationMillis)
+                    .put("at", i.lastPlayedMillis),
+            )
+        }
+    }.toString()
+
+    fun decode(raw: String): List<PlayedItem> {
+        val array = JSONArray(raw)
+        return (0 until array.length()).mapNotNull { n ->
+            val o = array.optJSONObject(n) ?: return@mapNotNull null
+            val images = o.optJSONArray("images")
+            PlayedItem(
+                packageName = o.optString("pkg").ifEmpty { return@mapNotNull null },
+                title = o.optString("title").ifEmpty { return@mapNotNull null },
+                subtitle = if (o.isNull("subtitle")) null else o.optString("subtitle"),
+                imageUris = if (images == null) emptyList() else (0 until images.length()).map { images.getString(it) },
+                positionMillis = o.optLong("pos"),
+                durationMillis = o.optLong("dur"),
+                lastPlayedMillis = o.optLong("at"),
+            )
+        }
+    }
+}
