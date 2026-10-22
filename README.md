@@ -45,17 +45,21 @@ You need a computer with this repo and the TV on the same network.
 
 Fire OS is Android underneath, so the same APK runs, but Amazon keeps the Home button for its own launcher and refuses to let that launcher be disabled. Minimal Home gets around it the way Projectivy and *Home on Fire* do: an accessibility service watches for Amazon's home screen coming to the front and opens Minimal Home over it. Nothing on the TV is disabled, so there is nothing to restore.
 
-Fire OS 7 holds back any app opened right after a Home press, so Minimal Home appears about 5 seconds after you press Home. During that wait the screen shows Minimal Home's plain dark background, which covers Amazon's home screen and its ads and swallows D-pad and OK presses, so they can't open anything on the hidden screen. Fire OS 8 is reported to hold back for about a quarter of a second.
+Fire OS 7 holds back any app opened right after a Home press, so Minimal Home appears about 5 seconds after you press Home. During that wait the screen shows the time and *Opening Minimal Home* on Minimal Home's dark background. It covers Amazon's home screen and its ads, and swallows D-pad and OK presses so they can't open anything on the hidden screen. Fire OS 8 is reported to hold back for about a quarter of a second.
 
-Stress-tested on a Fire TV Stick 4K Max (AFTKA), Fire OS 7.7.1.3, on 2026-10-22:
+Stress-tested on a Fire TV Stick 4K Max (AFTKA), Fire OS 7.7.1.3, on 2026-10-22 and 23:
 
 | Test | Result |
 |---|---|
-| Home from Netflix, YouTube, JioHotstar, Apple TV, Spotify, Fire TV settings and Minimal Home itself | 35 of 35 landed, 4.9 to 5.6 s |
-| Double, triple and five-press bursts, and a second press mid-wait | 12 of 12 landed |
+| Home from Netflix, YouTube, JioHotstar, Apple TV, Spotify, Prime Video, Fire TV settings and Minimal Home itself | 60 of 60 landed, 4.9 to 5.4 s |
+| Double, triple and five-press bursts, and a second press mid-wait | 22 of 22 landed |
 | D-pad, OK and Back pressed during the wait | swallowed; nothing opened |
 | Long-press Home | Amazon's panel opens and stays; Back returns to Minimal Home |
 | Reboot, standby and wake, crash, force-stop | recovers (see below) |
+| A crash while Fire TV settings are open, then a D-pad press | settings stay open |
+| **Settings** button | 12 of 13 opened Fire TV settings; once it ended on Amazon's settings search, which didn't happen again |
+| Prime Video trailer, paused and resumed, with the service on | playback controls hide on their own |
+| `scripts/restore.sh`, then opening Minimal Home | the redirect stays off |
 | Sleep timer, 70 s | standby at 72 s |
 | Memory after the runs | 60 MB (57 MB before); no cover windows left |
 
@@ -70,21 +74,22 @@ Stress-tested on a Fire TV Stick 4K Max (AFTKA), Fire OS 7.7.1.3, on 2026-10-22:
 **How it recovers.**
 
 - **A second Home press during the wait** lets Minimal Home up and then puts Amazon's home back over it, with no window event saying so. So a redirect isn't done until Minimal Home has stayed in front for 3 seconds: every 1.5 seconds the service reads what is in front from usage events, and covers and relaunches while Amazon's home is back.
-- **After an update or a crash**, Amazon's home can be in front without the service having seen it arrive. The first D-pad press there brings Minimal Home back.
+- **After an update or a crash**, Amazon's home can be in front without the service having seen it arrive. The first D-pad press there brings Minimal Home back. The service checks usage events first, so a press in Fire TV settings, which belong to Amazon's launcher too, is left alone.
+- **Two crashes close together** can make Android hold the service back for up to half an hour (seen once while testing, after two forced crashes a minute apart). Opening Minimal Home from Amazon's app row starts it again at once.
 - **A force-stop** (Fire TV's app settings can do one) makes Android switch the service off. Minimal Home turns it back on the next time it opens, using the *write secure settings* permission that `scripts/install.sh` grants over adb. Until then, open Minimal Home from Amazon's app row.
 
 **What differs from Google TV.**
 
 - **Screensaver.** Fire TV keeps Amazon's. Fire OS force-stops a screensaver's whole app each time the screensaver ends (it does this to Amazon's own too), and for Minimal Home that would switch the redirect off and drop the sleep timer every time. **Options → Preview screensaver** still works. Moving the screensaver into its own small APK would fix this.
-- **Continue watching** works the same way. Fire OS 7 has the Android TV provider, and JioHotstar publishes its rows there. Apps that don't are covered by the playbacks Minimal Home records itself (see [Apps that don't publish](#apps-that-dont-publish)).
+- **Continue watching** works the same way. Fire OS 7 has the Android TV provider, and JioHotstar publishes its rows there. Apps that don't are covered by the playbacks Minimal Home records itself (see [Apps that don't publish](#apps-that-dont-publish)), with one gap found so far: **Prime Video on Fire TV gives its media session no title and no length** (seen while a trailer played), so nothing is recorded for it, and its progress stays in the Prime Video app. Netflix has a media session too; whether it carries a title while an episode plays is not yet checked.
 - **Settings** opens Amazon's settings screen. The standard settings intent can't be used: on Fire OS it opens Amazon's home screen on its Settings tab, which the redirect would cover at once. **Long-press Home** still opens Amazon's panel (profiles, apps, sleep, settings).
-- **Apps** also include sideloaded apps that have only a phone-style launcher entry, plus the Appstore and Silk. Fire OS's other phone-style entries are system plumbing and stay hidden.
-- **Search** has no *All of Fire TV* tile and no **Voice** button, because Fire OS answers neither the global search nor the speech recognition request.
-- **Prime Video and some other apps keep their playback controls on screen** while any accessibility service is on; Fire OS treats accessibility as one switch. Reported by Projectivy users on a Fire TV Stick 4K Max; not yet checked here.
-- **Not yet tried on a Fire TV:** the search links for the Fire TV builds of YouTube, Prime Video and Apple TV.
+- **Apps** also include sideloaded apps that have only a phone-style launcher entry, plus the Appstore and Silk. Fire OS's other phone-style entries are system plumbing and stay hidden, and so does Amazon Shopping, a storefront rather than something to watch.
+- **Search** has no *All of Fire TV* tile and no **Voice** button, because Fire OS answers neither the global search nor the speech recognition request. **Prime Video** opens straight on results for your words. **YouTube** has no tile: every search link tried only opens its home page. **Netflix** and **Apple TV** take their links, but they block screenshots, so it's unconfirmed whether they show results.
+- **Playback controls.** Projectivy users have reported apps keeping their playback controls on screen while any accessibility service is on, since Fire OS treats accessibility as one switch. Prime Video's hide on their own here. If another app's don't, that's why.
+- **Diagnostics** also counts what the redirect did: how many redirects started and landed, how long the last one took, how often Amazon's home came back and Minimal Home was reopened, and how many gave up.
 - **Fire OS updates** can turn the service off. Run `scripts/install.sh --skip-build` again.
 
-**Undo.** `scripts/restore.sh` turns the service off and Home goes to Amazon's screen again; `--uninstall` removes the app.
+**Undo.** `scripts/restore.sh` turns the service off and takes back the *write secure settings* permission, so Minimal Home can't turn it on again, and Home goes to Amazon's screen again; `--uninstall` removes the app. Turning the service off in Fire TV's accessibility settings only lasts until Minimal Home next opens.
 
 ## Undo
 
@@ -114,7 +119,7 @@ Apply a batch, then check Home, Settings, an HDMI input and a streaming app befo
   - Tried on the BRAVIA: **YouTube** and **Prime Video** open straight on results for your words (Prime after its profile picker). **JioHotstar** opens its search page, but you type the words again there. **Netflix** and **Apple TV** take the search link, but they block screenshots, so it's unconfirmed whether they show results or just open. *All of Google TV* shows results from every app.
   - Other apps get a tile only if they accept Android's standard search request. Xstream Play doesn't, so it has no tile.
 - **Timer** at the top right turns the TV off after 10, 15, 20 or 30 minutes. Pick a time, then open any app; the timer keeps running behind it. While it runs, the button reads *Off in 9 min*. A minute before the end a message says the TV is about to turn off. At the end, whatever is playing is paused, so the app keeps its place, and the TV goes into standby. Open **Timer** again to pick a new time or cancel. If the TV is turned off before the timer ends, the timer just clears.
-- **Options** at the top right picks the layout and opens Diagnostics, which shows what the launcher can see on your TV.
+- **Options** at the top right picks the layout and opens Diagnostics, which shows what the launcher can see on your TV and which build it runs: the commit it was built from (*-modified* if there were uncommitted changes), and a version code that counts the minutes from 2020 to that commit.
 - **Settings** opens system settings. In Minimal it's a button at the top right. In Top Shelf it's the Settings tile in the app grid.
 
 ## Unsplash backgrounds

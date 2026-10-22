@@ -3,6 +3,7 @@ package dev.minimal.tvhome.ui
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.text.format.DateFormat
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -29,10 +30,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.minimal.tvhome.BuildConfig
 import dev.minimal.tvhome.HomeState
 import dev.minimal.tvhome.HomeViewModel
+import dev.minimal.tvhome.data.HomeRedirectRules
+import dev.minimal.tvhome.data.RedirectStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Date
 
 private const val TAG = "MinimalHome"
 
@@ -51,10 +56,22 @@ fun DiagnosticsScreen(viewModel: HomeViewModel, state: HomeState) {
                 Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
                 PackageManager.MATCH_DEFAULT_ONLY,
             )?.activityInfo?.packageName
+            val fireTv = viewModel.isFireTv()
+            val redirect = fireTv && viewModel.hasHomeRedirect()
             buildList {
-                add("Default home app: ${home ?: "none"}${if (home == "android") " (chooser, no default set)" else ""}")
-                if (viewModel.isFireTv()) {
-                    add("Fire TV: Home button redirect ${if (viewModel.hasHomeRedirect()) "on" else "off (run scripts/install.sh)"}")
+                add("Build: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, commit ${BuildConfig.GIT_COMMIT})")
+                add(
+                    "Default home app: ${home ?: "none"}" + when {
+                        home == "android" -> " (chooser, no default set)"
+                        // Fire OS won't let its launcher be replaced; the redirect opens Minimal Home over it.
+                        fireTv && home == HomeRedirectRules.AMAZON_LAUNCHER -> if (redirect) " (Amazon's, redirected)" else " (Amazon's)"
+                        else -> ""
+                    },
+                )
+                if (fireTv) {
+                    add("Fire TV: Home button redirect ${if (redirect) "on" else "off (run scripts/install.sh)"}")
+                    val timeFormat = DateFormat.getTimeFormat(context)
+                    add("    redirects: ${RedirectStats.describe(viewModel.redirectStats()) { timeFormat.format(Date(it)) }}")
                 }
                 add(
                     "TV listings permission: " + when {

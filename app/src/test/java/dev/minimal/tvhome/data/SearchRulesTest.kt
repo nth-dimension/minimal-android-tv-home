@@ -35,6 +35,12 @@ class SearchRulesTest {
         assertNull(SearchRules.link("tv.airtel.xstream.tvapp", "x"))
     }
 
+    @Test fun fireTvLinksAreTheOnesThatLandOnResults() {
+        assertEquals("https://app.primevideo.com/search?phrase=the%20boys", SearchRules.link("com.amazon.firebat", "the boys"))
+        // Fire TV's YouTube opens its home page whatever the link says.
+        assertFalse(SearchRules.hasLink("com.amazon.firetv.youtube"))
+    }
+
     @Test fun recentAppsComeFirst() {
         val apps = listOf("a", "b", "c", "d")
         assertEquals(listOf("c", "a", "b", "d"), SearchRules.orderTargets(apps, recent = listOf("c", "x", "a")))

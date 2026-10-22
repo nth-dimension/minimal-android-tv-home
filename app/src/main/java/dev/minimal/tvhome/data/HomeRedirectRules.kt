@@ -43,15 +43,32 @@ object HomeRedirectRules {
 
     /**
      * Whether a focus change (a key pressed) should open Minimal Home: it happened in Amazon's
-     * launcher, no redirect is under way, and Amazon's home is in front or not yet known not to be.
-     * Unknown counts as in front, so the first key after an update or crash leaves Amazon's home;
-     * the price is one jump to Minimal Home if the service restarts while Fire TV settings are open.
+     * launcher, no redirect is under way, and Amazon's home is in front or not known not to be.
+     * Before trusting unknown, the service asks usage events (see [amazonHomeIn]), so Fire TV
+     * settings, which share the launcher's package, are left alone. When usage events can't say
+     * either, unknown counts as in front, so the first key after an update or crash still leaves
+     * Amazon's home.
      */
     fun redirectOnFocus(packageName: CharSequence?, amazonHomeInFront: Boolean?, pending: Boolean): Boolean =
         packageName?.toString() == AMAZON_LAUNCHER && amazonHomeInFront != false && !pending
 
     /** What is in front, as far as the service can tell. */
     enum class Front { MinimalHome, AmazonHome, OtherApp, Unknown }
+
+    /** Whether Amazon's home is in front, given what usage events say is: null when they don't know. */
+    fun amazonHomeIn(front: Front): Boolean? = when (front) {
+        Front.AmazonHome -> true
+        Front.MinimalHome, Front.OtherApp -> false
+        Front.Unknown -> null
+    }
+
+    /**
+     * When Minimal Home first counts as arrived during a redirect: its window event, or the first
+     * check that finds it in front, whichever comes first. So a missed window event can't leave the
+     * cover up until [GIVE_UP_AFTER_MS].
+     */
+    fun landedAt(front: Front, now: Long, landedAt: Long): Long =
+        if (front == Front.MinimalHome && landedAt == 0L) now else landedAt
 
     enum class Step {
         /** Minimal Home has stayed up: stop checking. */

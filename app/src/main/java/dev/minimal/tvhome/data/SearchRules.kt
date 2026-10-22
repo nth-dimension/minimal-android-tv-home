@@ -12,6 +12,11 @@ object SearchRules {
      * for the words, Prime after its profile picker. JioHotstar opens its search page but leaves the
      * box empty. Netflix and Apple TV accept the link but block screenshots, so their landing page
      * is unconfirmed. Try a new one on a TV first.
+     *
+     * Fire TV builds, tried on a Fire TV Stick 4K Max (2026-10-22): Prime Video (com.amazon.firebat)
+     * shows results, even when it is already open. YouTube (com.amazon.firetv.youtube) only ever
+     * opens its home page, whatever the link, so it has none: a tile that opens YouTube without
+     * searching would mislead.
      */
     private val LINKS = mapOf(
         "com.google.android.youtube.tv" to "https://www.youtube.com/results?search_query=%s",
@@ -20,10 +25,8 @@ object SearchRules {
         "com.apple.atve.sony.appletv" to "https://tv.apple.com/search?term=%s",
         "com.apple.atve.androidtv.appletv" to "https://tv.apple.com/search?term=%s",
         "in.startv.hotstar" to "https://www.hotstar.com/in/explore?search_query=%s",
-        // Fire TV builds of the same apps. Not yet tried on a Fire TV; a link the app refuses
-        // falls back to opening the app.
-        "com.amazon.firetv.youtube" to "https://www.youtube.com/results?search_query=%s",
-        "com.amazon.avod" to "https://app.primevideo.com/search?phrase=%s",
+        // Fire TV builds. A link the app refuses falls back to opening the app.
+        "com.amazon.firebat" to "https://app.primevideo.com/search?phrase=%s",
         "com.apple.atve.amazon.appletv" to "https://tv.apple.com/search?term=%s",
     )
 

@@ -9,9 +9,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 
 /**
- * Lists installed TV apps (those with a Leanback launcher entry), with their art already scaled
- * to card size. Call off the main thread. Art is cached per package version, so a reload after
- * a package change only converts the app that changed.
+ * Lists installed TV apps (those with a Leanback launcher entry, and on Fire TV some phone-style
+ * ones too), with their art already scaled to card size. Call off the main thread. Art is cached
+ * per package version, so a reload after a package change only converts the app that changed.
  */
 class AppRepository(private val context: Context) {
     private val pm = context.packageManager
@@ -83,16 +83,17 @@ class AppRepository(private val context: Context) {
             "com.amazon.cloud9",  // Silk browser
         )
 
-        /** Stock launcher pieces that should never appear as apps. */
+        /** Stock launcher pieces, and Amazon's shopping storefront, which should never appear as apps. */
         val HIDDEN_PACKAGES = setOf(
             "com.google.android.apps.tv.launcherx",
             "com.google.android.tungsten.setupwraith",
             "com.google.android.tvlauncher",
             "com.google.android.leanbacklauncher",
             // Fire TV
-            "com.amazon.tv.launcher",        // Amazon's home screen
-            "com.amazon.firehomestarter",    // starts it after boot
-            "com.amazon.tv.oobe",            // first-run setup
+            "com.amazon.tv.launcher",          // Amazon's home screen
+            "com.amazon.firehomestarter",      // starts it after boot
+            "com.amazon.tv.oobe",              // first-run setup
+            "com.amazon.shoptv.firetv.client", // Amazon Shopping: a storefront, not something to watch
         )
     }
 }

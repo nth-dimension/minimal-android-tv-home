@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Minimal Home</string>
     <string name="home_redirect_description">Opens Minimal Home when the Home button brings up the Fire TV home screen. Reads nothing on screen.</string>
+    <string name="home_redirect_cover">Opening Minimal Home</string>
 </resources>

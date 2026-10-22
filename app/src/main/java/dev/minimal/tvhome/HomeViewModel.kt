@@ -23,6 +23,7 @@ import dev.minimal.tvhome.data.PlayHistory
 import dev.minimal.tvhome.data.PlayedItem
 import dev.minimal.tvhome.data.Ranking
 import dev.minimal.tvhome.data.RecentAppsRepository
+import dev.minimal.tvhome.data.RedirectStats
 import dev.minimal.tvhome.data.TvApp
 import dev.minimal.tvhome.data.WatchNextItem
 import dev.minimal.tvhome.data.WatchNextRepository
@@ -254,6 +255,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun isFireTv() = Platform.isFireTv(context)
 
     fun hasHomeRedirect() = HomeRedirectService.isEnabled(context)
+
+    fun redirectStats() = RedirectStats.read(context)
 
     fun playHistory(): List<PlayedItem> = PlayHistory.items.value
 

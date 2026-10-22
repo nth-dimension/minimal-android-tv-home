@@ -66,4 +66,20 @@ class HomeRedirectRulesTest {
         assertFalse(HomeRedirectRules.redirectOnFocus(launcher, amazonHomeInFront = true, pending = true))
         assertFalse(HomeRedirectRules.redirectOnFocus("com.netflix.ninja", amazonHomeInFront = null, pending = false))
     }
+
+    @Test fun usageEventsTellAmazonHomeFromSettingsInItsPackage() {
+        assertEquals(true, HomeRedirectRules.amazonHomeIn(HomeRedirectRules.Front.AmazonHome))
+        // Fire TV settings share the launcher's package but read as another app.
+        assertEquals(false, HomeRedirectRules.amazonHomeIn(HomeRedirectRules.Front.OtherApp))
+        assertEquals(false, HomeRedirectRules.amazonHomeIn(HomeRedirectRules.Front.MinimalHome))
+        assertEquals(null, HomeRedirectRules.amazonHomeIn(HomeRedirectRules.Front.Unknown))
+    }
+
+    @Test fun aCheckThatFindsMinimalHomeCountsAsLandingWhenNoWindowEventDid() {
+        val minimal = HomeRedirectRules.Front.MinimalHome
+        assertEquals(4_500L, HomeRedirectRules.landedAt(minimal, now = 4_500, landedAt = 0))
+        assertEquals(3_000L, HomeRedirectRules.landedAt(minimal, now = 4_500, landedAt = 3_000))
+        assertEquals(0L, HomeRedirectRules.landedAt(HomeRedirectRules.Front.AmazonHome, now = 4_500, landedAt = 0))
+        assertEquals(0L, HomeRedirectRules.landedAt(HomeRedirectRules.Front.Unknown, now = 4_500, landedAt = 0))
+    }
 }

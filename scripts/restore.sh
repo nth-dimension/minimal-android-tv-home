@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Re-enables the stock Google TV launcher. Minimal Home stays installed unless --uninstall is given.
+# Gives Home back to the TV's own launcher: on Google TV by re-enabling it, on Fire TV by turning
+# the Home redirect off. Minimal Home stays installed unless --uninstall is given.
 #
 #   scripts/restore.sh               re-enable stock launcher and the TV's own screensaver
 #   scripts/restore.sh --uninstall   also remove Minimal Home
@@ -13,7 +14,7 @@ for arg in "$@"; do
   case "$arg" in
     --uninstall) UNINSTALL=1 ;;
     --reboot) REBOOT=1 ;;
-    -h|--help) sed -n '2,7p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
     *) die "unknown option: $arg" ;;
   esac
 done
@@ -22,9 +23,15 @@ require_device
 
 if is_fire_tv; then
   # Amazon's launcher was never disabled; Home goes back to it once our redirect service is off.
+  # First take back the permission Minimal Home uses to turn the service on again by itself, or it
+  # would do so the next time it opened.
+  if is_installed "$PKG"; then
+    "$ADB" shell pm revoke "$PKG" android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 || true
+  fi
   services="$(accessibility_services)"
   if tr ':' '\n' <<<"$services" | grep -qx "$REDIRECT"; then
-    remaining="$(tr ':' '\n' <<<"$services" | grep -vx "$REDIRECT" | paste -sd ':' -)"
+    # grep finds nothing when ours is the only service; that must not end the script.
+    remaining="$(tr ':' '\n' <<<"$services" | { grep -vx "$REDIRECT" || true; } | paste -sd ':' -)"
     "$ADB" shell settings put secure enabled_accessibility_services "'$remaining'"
     # Fire OS treats accessibility as one switch; some apps (Prime Video) behave differently while it's on.
     [[ -z "$remaining" ]] && "$ADB" shell settings put secure accessibility_enabled 0

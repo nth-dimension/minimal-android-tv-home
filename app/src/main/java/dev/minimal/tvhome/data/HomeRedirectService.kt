@@ -13,9 +13,15 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.widget.LinearLayout
+import android.widget.TextClock
+import android.widget.TextView
 import dev.minimal.tvhome.MainActivity
 import dev.minimal.tvhome.R
 import dev.minimal.tvhome.data.HomeRedirectRules.Front
@@ -28,8 +34,9 @@ import dev.minimal.tvhome.data.HomeRedirectRules.Step
  *
  * Fire OS 7 holds back any app started right after a Home press for about five seconds (measured
  * on a Fire TV Stick 4K Max, Fire OS 7.7.1.3); Fire OS 8 for about a quarter second. Meanwhile a
- * plain cover in Minimal Home's background colour hides Amazon's screen and its ads, and swallows
- * D-pad and OK presses so they can't act on Amazon's hidden screen.
+ * cover in Minimal Home's background colour hides Amazon's screen and its ads, and swallows D-pad
+ * and OK presses so they can't act on Amazon's hidden screen. It shows the time and says Minimal
+ * Home is on its way, so the wait doesn't look like a hang.
  *
  * A second Home press in the wait lets Minimal Home up and then puts Amazon's home back over it
  * with no window event, so a redirect isn't trusted until Minimal Home has stayed in front: every
@@ -55,16 +62,27 @@ class HomeRedirectService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindowChanged(event)
-            // A key pressed on Amazon's home screen with no redirect under way: after an update, a
-            // crash or a boot, Amazon's home can be in front without this service having seen it
-            // arrive, and Home then sends no new window event. Focus events carry only the app's
-            // name here; window content is never requested.
-            AccessibilityEvent.TYPE_VIEW_FOCUSED ->
-                if (HomeRedirectRules.redirectOnFocus(event.packageName, amazonHomeInFront, startedAt != 0L)) {
-                    Log.i(TAG, "Key pressed on the Amazon launcher; opening Minimal Home")
-                    startRedirect(SystemClock.elapsedRealtime())
-                }
+            AccessibilityEvent.TYPE_VIEW_FOCUSED -> onFocus(event)
             else -> Unit
+        }
+    }
+
+    /**
+     * A key pressed in Amazon's launcher with no redirect under way: after an update, a crash or a
+     * boot, Amazon's home can be in front without this service having seen it arrive, and Home then
+     * sends no new window event. Focus events carry only the app's name here; window content is
+     * never requested.
+     */
+    private fun onFocus(event: AccessibilityEvent) {
+        if (event.packageName?.toString() != HomeRedirectRules.AMAZON_LAUNCHER || startedAt != 0L) return
+        // No window event since the service started: usage events remember further back, and tell
+        // Amazon's home from the Fire TV settings screens that share its package.
+        if (amazonHomeInFront == null) {
+            amazonHomeInFront = HomeRedirectRules.amazonHomeIn(usageFront(FOCUS_LOOKBACK_MS) ?: Front.Unknown)
+        }
+        if (HomeRedirectRules.redirectOnFocus(event.packageName, amazonHomeInFront, pending = false)) {
+            Log.i(TAG, "Key pressed on the Amazon launcher; opening Minimal Home")
+            startRedirect(SystemClock.elapsedRealtime())
         }
     }
 
@@ -94,6 +112,7 @@ class HomeRedirectService : AccessibilityService() {
     }
 
     private fun startRedirect(now: Long) {
+        RedirectStats.started(this)
         lastRedirectAt = now
         startedAt = now
         landedAt = 0L
@@ -107,14 +126,30 @@ class HomeRedirectService : AccessibilityService() {
         if (startedAt == 0L) return
         val now = SystemClock.elapsedRealtime()
         val front = front()
+        val landed = HomeRedirectRules.landedAt(front, now, landedAt)
+        if (landed != landedAt) {
+            landedAt = landed
+            hideCover()
+        }
         when (HomeRedirectRules.nextStep(front, now, startedAt, landedAt)) {
-            Step.Done -> endRedirect()
+            Step.Done -> {
+                RedirectStats.landed(this, landedAt - startedAt)
+                endRedirect()
+            }
             Step.Stop -> {
-                if (front != Front.OtherApp) Log.w(TAG, "Gave up opening Minimal Home over the Amazon launcher")
+                if (front != Front.OtherApp) {
+                    Log.w(TAG, "Gave up opening Minimal Home over the Amazon launcher")
+                    RedirectStats.gaveUp(this)
+                }
                 endRedirect()
             }
             Step.Relaunch -> {
-                if (landedAt != 0L) Log.i(TAG, "Amazon's home came back over Minimal Home; opening it again")
+                // Relaunching while Fire OS still holds the first launch back is routine; Amazon's
+                // home coming back over Minimal Home is what is worth counting.
+                if (landedAt != 0L) {
+                    Log.i(TAG, "Amazon's home came back over Minimal Home; opening it again")
+                    RedirectStats.cameBack(this)
+                }
                 amazonHomeInFront = true
                 landedAt = 0L
                 showCover()
@@ -129,14 +164,16 @@ class HomeRedirectService : AccessibilityService() {
      * What is in front, from the last activity usage events saw come to the front. Falls back to
      * what window events said when usage access is missing.
      */
-    private fun front(): Front {
-        val last = runCatching { lastForeground() }.getOrNull()
-            ?: return when {
-                amazonHomeInFront == true -> Front.AmazonHome
-                landedAt != 0L -> Front.MinimalHome
-                else -> Front.Unknown
-            }
-        val (pkg, cls) = last
+    private fun front(): Front =
+        usageFront(LOOKBACK_MS) ?: when {
+            amazonHomeInFront == true -> Front.AmazonHome
+            landedAt != 0L -> Front.MinimalHome
+            else -> Front.Unknown
+        }
+
+    /** What usage events say came to the front last within [lookbackMs], or null if they can't say. */
+    private fun usageFront(lookbackMs: Long): Front? {
+        val (pkg, cls) = runCatching { lastForeground(lookbackMs) }.getOrNull() ?: return null
         return when {
             pkg == packageName -> Front.MinimalHome
             HomeRedirectRules.isAmazonHome(pkg, cls) -> Front.AmazonHome
@@ -144,10 +181,10 @@ class HomeRedirectService : AccessibilityService() {
         }
     }
 
-    private fun lastForeground(): Pair<String, String?>? {
+    private fun lastForeground(lookbackMs: Long): Pair<String, String?>? {
         val usage = getSystemService(UsageStatsManager::class.java) ?: return null
         val end = System.currentTimeMillis()
-        val events = usage.queryEvents(end - LOOKBACK_MS, end) ?: return null
+        val events = usage.queryEvents(end - lookbackMs, end) ?: return null
         val e = UsageEvents.Event()
         var last: Pair<String, String?>? = null
         while (events.hasNextEvent()) {
@@ -179,10 +216,23 @@ class HomeRedirectService : AccessibilityService() {
         // Focusable, and it swallows every key it gets: otherwise D-pad and OK pressed during the
         // wait move around Amazon's hidden home screen and can open whatever is selected there.
         // Home and the other system keys never reach a window, so they still work.
-        val view = View(this).apply {
+        val view = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
             setBackgroundColor(getColor(R.color.background))
             isFocusable = true
             setOnKeyListener { _, _, _ -> true }
+            val centred = { LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT) }
+            addView(TextClock(context).apply {
+                setTextColor(getColor(R.color.text))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 56f)
+                letterSpacing = 0.02f
+            }, centred())
+            addView(TextView(context).apply {
+                text = getString(R.string.home_redirect_cover)
+                setTextColor(getColor(R.color.text_dim))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            }, centred())
         }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -212,8 +262,15 @@ class HomeRedirectService : AccessibilityService() {
     companion object {
         private const val TAG = "MinimalHome"
 
-        /** Usage events this far back are enough to find what is in front now. */
+        /** Usage events this far back are enough to find what is in front during a redirect. */
         private const val LOOKBACK_MS = 60_000L
+
+        /**
+         * How far back a key press with nothing known looks: what is in front may have arrived
+         * long before the service started. Reading a day of events took about 30 ms on a Fire TV
+         * Stick 4K Max, and happens once per service start.
+         */
+        private const val FOCUS_LOOKBACK_MS = 24 * 60 * 60_000L
 
         /**
          * Turns the service back on if it was switched off, which Android does to a force-stopped
