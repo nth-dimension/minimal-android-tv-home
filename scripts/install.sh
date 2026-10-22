@@ -73,6 +73,17 @@ else
   echo "  warning: could not make Minimal Home a device admin; the sleep timer can't turn the TV off."
 fi
 
+# Fire OS force-stops a third-party screensaver's whole app each time the screensaver ends. That
+# would switch off the Home redirect and drop the sleep timer every time, so Fire TV keeps Amazon's.
+if [[ $SCREENSAVER == 1 && $FIRE_TV == 1 ]]; then
+  echo "Screensaver: keeping Amazon's. Fire OS force-stops a third-party screensaver's app when it ends,"
+  echo "  which would switch off the Home redirect. Options -> Preview screensaver still works."
+  backup="$(screensaver_backup)"
+  if [[ "$("$ADB" shell settings get secure screensaver_components | tr -d '\r')" == "$DREAM" && -f "$backup" ]]; then
+    "$ADB" shell settings put secure screensaver_components "$(cat "$backup")" && echo "  put back $(cat "$backup")"
+  fi
+  SCREENSAVER=0
+fi
 if [[ $SCREENSAVER == 1 ]]; then
   echo "Setting the screensaver..."
   before="$("$ADB" shell settings get secure screensaver_components | tr -d '\r')"
@@ -102,6 +113,9 @@ if [[ $TAKEOVER == 1 && $FIRE_TV == 1 ]]; then
     "$ADB" shell settings put secure enabled_accessibility_services "$services"
   fi
   "$ADB" shell settings put secure accessibility_enabled 1
+  # Lets the app turn the service back on itself: Android switches it off when the app is force-stopped.
+  "$ADB" shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS \
+    || echo "  warning: could not grant WRITE_SECURE_SETTINGS; after a force-stop, run this script again."
   # Fire OS may hold back a sideloaded app at boot or in standby; both are best effort and harmless.
   "$ADB" shell appops set "$PKG" AUTO_START allow >/dev/null 2>&1 || true
   "$ADB" shell dumpsys deviceidle whitelist "+$PKG" >/dev/null 2>&1 || true
@@ -110,10 +124,17 @@ if [[ $TAKEOVER == 1 && $FIRE_TV == 1 ]]; then
   else
     die "could not turn on the Home redirect service. See README > Fire TV."
   fi
-  # Press "Home" for the user: open Amazon's screen and see whether Minimal Home comes over it.
-  "$ADB" shell am start -n "$AMAZON_HOME" >/dev/null 2>&1 || true
-  sleep 6
-  front="$(foreground_package)"
+  # Press "Home" for the user: Minimal Home must be in front first (Amazon's home being in front
+  # already sends no event), then open Amazon's home and see whether Minimal Home comes over it.
+  # After an update the service takes a while to bind again, so this tries for up to half a minute.
+  front=""
+  for _ in 1 2 3 4 5 6; do
+    "$ADB" shell am start -n "$ACTIVITY" >/dev/null 2>&1; sleep 2
+    "$ADB" shell am start -n "$AMAZON_HOME" >/dev/null 2>&1 || true
+    sleep 3
+    front="$(foreground_package)"
+    [[ "$front" == "$PKG" ]] && break
+  done
   if [[ "$front" == "$PKG" ]]; then
     echo "  Home opens Minimal Home (after a brief flash of Amazon's screen)."
   else

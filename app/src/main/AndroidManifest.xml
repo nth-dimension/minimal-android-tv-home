@@ -19,6 +19,11 @@
     <!-- Sleep timer: turn the TV off on time. Android 12 grants the first at install; 13+ the second. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- Fire TV only, granted over adb by scripts/install.sh: lets the app turn its Home redirect
+         back on after Android switches it off (a force-stop does that). Not used on Google TV. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- Android 13+ hides a background app's toasts without this; the timer's 1-minute warning is one. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

@@ -51,8 +51,10 @@ class MediaListenerService : NotificationListenerService() {
     }
 
     override fun onDestroy() {
-        thread.quitSafely()
+        // super first: it calls onListenerDisconnected, whose cleanup is posted to this thread.
+        // quitSafely still runs it; quitting first dropped it ("sending message to a dead thread").
         super.onDestroy()
+        thread.quitSafely()
     }
 
     private fun track(controllers: List<MediaController>) {

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -39,6 +40,7 @@ import androidx.tv.material3.Text
 import dev.minimal.tvhome.HomeState
 import dev.minimal.tvhome.data.BackgroundMode
 import dev.minimal.tvhome.data.HomeStyle
+import dev.minimal.tvhome.data.Platform
 import dev.minimal.tvhome.data.WallpaperInterval
 import dev.minimal.tvhome.data.WallpaperSettings
 import dev.minimal.tvhome.data.WallpaperTopic
@@ -58,6 +60,8 @@ fun OptionsScreen(
 ) {
     val current = state.style
     val wp = state.wallpaperSettings
+    val context = LocalContext.current
+    val fireTv = remember { Platform.isFireTv(context) }
     val selectedCard = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         withFrameNanos { }
@@ -144,7 +148,9 @@ fun OptionsScreen(
                 if (state.unsplashConfigured) {
                     "Unsplash photos, a new one every 5 minutes, from the topics picked " +
                         (if (wp.mode == BackgroundMode.Unsplash) "above. " else "below. ") +
-                        "The TV starts it after it sits idle; scripts/install.sh makes it the TV's screensaver."
+                        (if (fireTv) "Preview only on Fire TV: Fire OS force-stops a third-party screensaver's app " +
+                            "when it ends, which would switch off the Home button redirect."
+                        else "The TV starts it after it sits idle; scripts/install.sh makes it the TV's screensaver.")
                 } else {
                     "The screensaver shows Unsplash photos once an access key is set. " +
                         "Reinstall with: scripts/install.sh --unsplash-key YOUR_KEY"

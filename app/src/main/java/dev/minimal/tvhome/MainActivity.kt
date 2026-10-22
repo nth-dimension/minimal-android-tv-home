@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import dev.minimal.tvhome.data.HomeRedirectService
 import dev.minimal.tvhome.data.SleepTimer
 import dev.minimal.tvhome.data.WatchNextRepository
 import dev.minimal.tvhome.ui.HomeApp
@@ -39,6 +40,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshOnResume()
+        // Fire TV: Android drops the Home redirect when the app is force-stopped; put it back.
+        lifecycleScope.launch(Dispatchers.IO) { HomeRedirectService.ensureEnabled(applicationContext) }
     }
 
     override fun onNewIntent(intent: Intent) {
