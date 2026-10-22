@@ -22,7 +22,8 @@ class HomePrefs(private val context: Context) {
     private val favoritesKey = stringPreferencesKey("favorites")
     private val styleKey = stringPreferencesKey("home_style")
     private val backgroundKey = stringPreferencesKey("background_mode")
-    private val topicKey = stringPreferencesKey("wallpaper_topic")
+    private val topicsKey = stringPreferencesKey("wallpaper_topics")
+    private val legacyTopicKey = stringPreferencesKey("wallpaper_topic")
     private val intervalKey = stringPreferencesKey("wallpaper_interval")
     private val askedTvListingsKey = booleanPreferencesKey("asked_tv_listings")
 
@@ -43,7 +44,7 @@ class HomePrefs(private val context: Context) {
         data.map {
             WallpaperSettings(
                 mode = BackgroundMode.parse(it[backgroundKey]),
-                topic = WallpaperTopic.parse(it[topicKey]),
+                topics = WallpaperTopic.parseSet(it[topicsKey] ?: it[legacyTopicKey]),
                 interval = WallpaperInterval.parse(it[intervalKey]),
             )
         }.distinctUntilChanged()
@@ -57,7 +58,7 @@ class HomePrefs(private val context: Context) {
     suspend fun setWallpaperSettings(settings: WallpaperSettings) {
         edit {
             it[backgroundKey] = settings.mode.name
-            it[topicKey] = settings.topic.name
+            it[topicsKey] = WallpaperTopic.encodeSet(settings.topics)
             it[intervalKey] = settings.interval.name
         }
     }

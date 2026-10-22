@@ -1,8 +1,6 @@
 package dev.minimal.tvhome.screensaver
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
@@ -16,6 +14,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextClock
 import android.widget.TextView
+import dev.minimal.tvhome.data.Images
 import dev.minimal.tvhome.data.ScreensaverPhotos
 import dev.minimal.tvhome.data.ScreensaverRules
 import dev.minimal.tvhome.data.Wallpaper
@@ -79,15 +78,13 @@ class PhotoSlideshow(private val context: Context) {
             val start = withContext(Dispatchers.IO) { photos.firstPhoto() }
             if (start != null) show(start) else status.text = if (photos.isConfigured) "Loading photos…" else
                 "Unsplash photos need an access key. Reinstall with scripts/install.sh --unsplash-key YOUR_KEY"
-            val newest = withContext(Dispatchers.IO) { photos.pool().firstOrNull()?.fetchedAt }
-            // A photo fetched a minute ago (the screensaver restarted) stays up for the rest of its five minutes.
-            var nextAt = SystemClock.elapsedRealtime() +
-                if (start == null) 0 else ScreensaverRules.waitBeforeFetch(newest, System.currentTimeMillis())
+            var nextAt = SystemClock.elapsedRealtime() + if (start == null) 0 else ScreensaverRules.SWAP_MS
             while (isActive) {
                 // Fetch a minute early, so a slow download doesn't push the swap past five minutes.
                 delay((nextAt - PREFETCH_MS - SystemClock.elapsedRealtime()).coerceAtLeast(0))
-                Log.i(TAG, "Screensaver: fetching a new photo")
-                val pick = photos.fetch() ?: withContext(Dispatchers.IO) { ScreensaverRules.next(photos.pool(), current?.id) }
+                val pool = withContext(Dispatchers.IO) { photos.pool() }
+                val due = ScreensaverRules.shouldFetch(pool.firstOrNull()?.fetchedAt, System.currentTimeMillis(), pool.size)
+                val pick = (if (due) photos.fetch() else null) ?: ScreensaverRules.next(pool, current?.id)
                 delay((nextAt - SystemClock.elapsedRealtime()).coerceAtLeast(0))
                 if (pick != null && pick.id != current?.id) show(pick)
                 nextAt = SystemClock.elapsedRealtime() + ScreensaverRules.SWAP_MS
@@ -108,7 +105,7 @@ class PhotoSlideshow(private val context: Context) {
 
     private suspend fun show(photo: Wallpaper) {
         val width = context.resources.displayMetrics.widthPixels
-        val bitmap = withContext(Dispatchers.IO) { decode(photo.file, width) }
+        val bitmap = withContext(Dispatchers.IO) { Images.decodeFile(photo.file, width) }
         Log.i(TAG, "Screensaver: showing ${photo.id}${if (bitmap == null) " failed to decode" else ""}")
         if (bitmap == null) return
         current = photo
@@ -122,8 +119,14 @@ class PhotoSlideshow(private val context: Context) {
         incoming.alpha = 0f
         incoming.translationZ = 1f
         outgoing.translationZ = 0f
+        // Zoom and pan as a GPU layer: no redraw of the photo itself on each step. Only the photo
+        // on screen keeps a layer; the one that faded out gives its texture back.
+        incoming.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         startDrift(incoming)
-        incoming.animate().alpha(1f).setDuration(FADE_MS).withEndAction { outgoing.setImageDrawable(null) }.start()
+        incoming.animate().alpha(1f).setDuration(FADE_MS).withEndAction {
+            outgoing.setImageDrawable(null)
+            outgoing.setLayerType(View.LAYER_TYPE_NONE, null)
+        }.start()
         top = incoming
     }
 
@@ -153,11 +156,7 @@ class PhotoSlideshow(private val context: Context) {
         }
     }
 
-    private fun image() = ImageView(context).apply {
-        scaleType = ImageView.ScaleType.CENTER_CROP
-        // Zoom and pan as a GPU layer: no redraw of the photo itself on each frame.
-        setLayerType(View.LAYER_TYPE_HARDWARE, null)
-    }
+    private fun image() = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
 
     private fun text(sizeSp: Float, alpha: Float) = TextView(context).apply {
         setTextColor(Color.WHITE)
@@ -176,13 +175,5 @@ class PhotoSlideshow(private val context: Context) {
         const val PREFETCH_MS = 60_000L
         const val DRIFT_STEP_MS = 100L
         const val TAG = "MinimalHome"
-
-        fun decode(path: String, targetWidth: Int): Bitmap? = runCatching {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(path, bounds)
-            var sample = 1
-            while (bounds.outWidth / (sample * 2) >= targetWidth) sample *= 2
-            BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
-        }.getOrNull()
     }
 }

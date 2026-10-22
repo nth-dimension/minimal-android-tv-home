@@ -105,7 +105,8 @@ internal fun Clock(style: TextStyle = MaterialTheme.typography.headlineSmall) {
     val time by produceState(initialValue = DateFormat.getTimeFormat(context).format(Date())) {
         while (true) {
             value = DateFormat.getTimeFormat(context).format(Date())
-            delay(10_000)
+            // Wake when the minute changes, not on a fixed tick.
+            delay(60_000 - System.currentTimeMillis() % 60_000)
         }
     }
     Text(time, style = style)

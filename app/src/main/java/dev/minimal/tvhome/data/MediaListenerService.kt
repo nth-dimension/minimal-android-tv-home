@@ -145,7 +145,9 @@ class MediaListenerService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "MinimalHome"
-        private const val SAVE_INTERVAL_MS = 30_000L
+        // Position is also saved on pause, stop and title change, so this only bounds how stale a
+        // playback that ends abruptly (TV switched off) can be.
+        private const val SAVE_INTERVAL_MS = 120_000L
 
         fun hasAccess(context: Context): Boolean =
             context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)

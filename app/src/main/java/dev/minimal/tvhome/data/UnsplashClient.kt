@@ -11,10 +11,11 @@ class UnsplashClient(private val context: Context, private val accessKey: String
 
     val isConfigured: Boolean get() = accessKey.isNotBlank()
 
-    /** Downloads a random landscape photo for [topic] into [dir] as `<id>.jpg`, sized to the screen. */
-    fun fetchRandom(topic: WallpaperTopic, dir: File, now: Long): Wallpaper {
+    /** Downloads a random landscape photo from one of [topics] into [dir] as `<id>.jpg`, sized to the screen. */
+    fun fetchRandom(topics: Set<WallpaperTopic>, dir: File, now: Long): Wallpaper {
+        val topic = topics.randomOrNull() ?: WallpaperTopic.Nature
         val photo = WallpaperRules.parsePhoto(apiGet(WallpaperRules.randomPhotoUrl(topic.query)))
-        val width = context.resources.displayMetrics.widthPixels.coerceIn(1280, 3840)
+        val width = context.resources.displayMetrics.widthPixels.coerceIn(1280, Images.MAX_WIDTH)
         dir.mkdirs()
         val target = File(dir, "${photo.id}.jpg")
         val partial = File(dir, "${photo.id}.part")

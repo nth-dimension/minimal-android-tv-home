@@ -16,12 +16,28 @@ enum class BackgroundMode {
 enum class WallpaperTopic(val label: String, val query: String) {
     Nature("Nature", "nature"),
     Landscapes("Landscapes", "landscape"),
+    Mountains("Mountains", "mountains"),
+    Ocean("Ocean", "ocean coast"),
+    Forest("Forest", "forest"),
+    Flowers("Flowers", "flowers"),
+    Animals("Animals", "wildlife animal"),
+    Cities("Cities", "city skyline"),
     Architecture("Architecture", "architecture"),
+    Travel("Travel", "travel destination"),
+    Space("Space", "space galaxy"),
+    NightSky("Night sky", "night sky stars"),
     Abstract("Abstract", "abstract minimal"),
-    NightSky("Night sky", "night sky stars");
+    Textures("Textures", "texture pattern");
 
     companion object {
         fun parse(raw: String?): WallpaperTopic = entries.firstOrNull { it.name == raw } ?: Nature
+
+        /** Several names joined by commas, as saved in preferences. Never empty: Nature if nothing parses. */
+        fun parseSet(raw: String?): Set<WallpaperTopic> =
+            raw.orEmpty().split(",").mapNotNull { n -> entries.firstOrNull { it.name == n.trim() } }.toSet()
+                .ifEmpty { setOf(Nature) }
+
+        fun encodeSet(topics: Set<WallpaperTopic>): String = topics.joinToString(",") { it.name }
     }
 }
 
@@ -34,9 +50,14 @@ enum class WallpaperInterval(val label: String, val millis: Long) {
     }
 }
 
+/** Adds or removes a topic; the last one can't be removed, so there is always something to fetch. */
+fun Set<WallpaperTopic>.toggled(topic: WallpaperTopic): Set<WallpaperTopic> =
+    if (topic in this) (this - topic).ifEmpty { this } else this + topic
+
 data class WallpaperSettings(
     val mode: BackgroundMode = BackgroundMode.Solid,
-    val topic: WallpaperTopic = WallpaperTopic.Nature,
+    /** One or more; each new photo comes from one of them, picked at random. */
+    val topics: Set<WallpaperTopic> = setOf(WallpaperTopic.Nature),
     val interval: WallpaperInterval = WallpaperInterval.Hourly,
 )
 
@@ -71,10 +92,10 @@ object WallpaperRules {
         return "$rawUrl${separator}w=$widthPx&fm=jpg&q=80&fit=max"
     }
 
-    /** A new photo is due when there is none, the topic changed, or the interval has passed. */
+    /** A new photo is due when there is none, its topic is no longer chosen, or the interval has passed. */
     fun isStale(current: Wallpaper?, settings: WallpaperSettings, now: Long): Boolean {
         if (current == null) return true
-        if (current.topic != settings.topic.name) return true
+        if (settings.topics.none { it.name == current.topic }) return true
         if (now < current.fetchedAt) return true // clock moved backwards
         return now - current.fetchedAt >= settings.interval.millis
     }

@@ -94,12 +94,12 @@ fun AppCard(
 
 @Composable
 internal fun AppArt(app: TvApp) {
-    val banner = rememberDrawableImage("banner:${app.packageName}", app.banner, 320, 180)
+    val banner = app.banner
     if (banner != null) {
         Image(banner, contentDescription = app.label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         return
     }
-    val icon = rememberDrawableImage("icon:${app.packageName}", app.icon, 96, 96)
+    val icon = app.icon
     Row(
         modifier = Modifier.fillMaxSize().padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -136,7 +136,7 @@ fun TextCard(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
 internal fun PosterArt(item: WatchNextItem, app: TvApp?, width: Dp, showBadge: Boolean) {
     val posterPx = with(LocalDensity.current) { width.roundToPx() }
     val poster = rememberRemoteImage(item.imageUris, posterPx)
-    val badge = if (showBadge) rememberDrawableImage("icon:${item.packageName}", app?.icon, 64, 64) else null
+    val badge = if (showBadge) app?.icon else null
     Box(Modifier.fillMaxSize()) {
         if (poster != null) {
             Image(poster, contentDescription = item.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

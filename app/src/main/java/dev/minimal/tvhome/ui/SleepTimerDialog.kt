@@ -27,7 +27,9 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import dev.minimal.tvhome.data.SleepTimer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.Date
 
 /** Minutes left on the sleep timer, updated while shown, or null with no timer running. */
@@ -54,7 +56,7 @@ fun sleepTimerLabel(minutesLeft: Int?): String = if (minutesLeft == null) "Timer
 @Composable
 fun SleepTimerDialog(minutesLeft: Int?, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val canTurnOff = remember { SleepTimer.canTurnOff(context) }
+    val canTurnOff by produceState(true) { value = withContext(Dispatchers.IO) { SleepTimer.canTurnOff(context) } }
     val endsAt by SleepTimer.endsAt.collectAsStateWithLifecycle()
     Dialog(onDismissRequest = onDismiss) {
         val first = remember { FocusRequester() }

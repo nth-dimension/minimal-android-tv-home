@@ -14,22 +14,24 @@ import java.util.concurrent.TimeUnit
 
 /** Pure rules for the screensaver's photo pool, free of Android types so they are unit-testable. */
 object ScreensaverRules {
-    /** A new photo every 5 minutes. */
+    /** The photo on screen changes every 5 minutes. */
     val SWAP_MS: Long = TimeUnit.MINUTES.toMillis(5)
+
+    /**
+     * A new photo is downloaded every 15 minutes; the swaps between cycle the saved ones. Each
+     * download costs two Unsplash requests out of 50 an hour, and a write to the TV's flash.
+     */
+    val FETCH_EVERY_MS: Long = TimeUnit.MINUTES.toMillis(15)
 
     /** Photos kept on the TV, so the screensaver starts instantly and cycles when offline. */
     const val KEEP = 8
 
-    // A little under SWAP_MS, so a screensaver that restarts often can't fetch faster than every
-    // few minutes and use up Unsplash's 50 requests an hour.
-    private val MIN_FETCH_GAP_MS = SWAP_MS - TimeUnit.SECONDS.toMillis(30)
+    /** Slightly early, so a swap that lands just before the 15-minute mark still fetches. */
+    private val FETCH_SLACK_MS = TimeUnit.SECONDS.toMillis(30)
 
-    fun shouldFetch(lastFetchedAt: Long?, now: Long): Boolean =
-        lastFetchedAt == null || now < lastFetchedAt || now - lastFetchedAt >= MIN_FETCH_GAP_MS
-
-    /** How long to wait before fetching, given when the newest saved photo was fetched. */
-    fun waitBeforeFetch(lastFetchedAt: Long?, now: Long): Long =
-        if (shouldFetch(lastFetchedAt, now)) 0 else (SWAP_MS - (now - lastFetchedAt!!)).coerceIn(0, SWAP_MS)
+    /** Whether the next swap should download a new photo rather than reuse a saved one. */
+    fun shouldFetch(lastFetchedAt: Long?, now: Long, saved: Int): Boolean =
+        saved < 2 || lastFetchedAt == null || now < lastFetchedAt || now - lastFetchedAt >= FETCH_EVERY_MS - FETCH_SLACK_MS
 
     /** Newest first, no duplicate photos, at most [keep]. Returns the pool and what fell out of it. */
     fun add(pool: List<Wallpaper>, photo: Wallpaper, keep: Int = KEEP): Pair<List<Wallpaper>, List<Wallpaper>> {
@@ -48,6 +50,8 @@ object ScreensaverRules {
 /** The screensaver's photos on disk: a small pool topped up from Unsplash. */
 class ScreensaverPhotos(private val context: Context) {
     private val client = UnsplashClient(context, BuildConfig.UNSPLASH_ACCESS_KEY)
+    private val prefs = HomePrefs(context)
+    private val wallpaper = WallpaperRepository(context, BuildConfig.UNSPLASH_ACCESS_KEY)
     private val dir: File get() = File(context.filesDir, "screensaver").apply { mkdirs() }
     private val index: File get() = File(dir, "index.json")
 
@@ -61,22 +65,21 @@ class ScreensaverPhotos(private val context: Context) {
 
     /** What to show the moment the screensaver starts: the newest saved photo, else the home background. */
     fun firstPhoto(): Wallpaper? =
-        pool().firstOrNull() ?: WallpaperRepository(context, BuildConfig.UNSPLASH_ACCESS_KEY).current()
+        pool().firstOrNull() ?: wallpaper.current()
 
-    /** Fetches a new photo in the topic picked in Options. Null if none could be fetched. */
+    /** Fetches a new photo in one of the topics picked in Options. Null if none could be fetched. */
     suspend fun fetch(): Wallpaper? = mutex.withLock {
         if (!isConfigured) return@withLock null
-        val topic = HomePrefs(context).wallpaperSettings.first().topic
+        val topics = prefs.wallpaperSettings.first().topics
         withContext(Dispatchers.IO) {
             try {
-                val photo = client.fetchRandom(topic, dir, System.currentTimeMillis())
+                val photo = client.fetchRandom(topics, dir, System.currentTimeMillis())
                 val (kept, dropped) = ScreensaverRules.add(pool(), photo)
                 index.writeText(JSONArray(kept.map(WallpaperRules::encode)).toString())
                 dropped.forEach { File(it.file).delete() }
                 // Leftovers from interrupted downloads.
                 val keep = kept.map { File(it.file).name }.toSet() + index.name
                 dir.listFiles()?.filter { it.name !in keep }?.forEach { it.delete() }
-                Log.i(TAG, "Screensaver photo saved; ${kept.size} on the TV")
                 photo
             } catch (e: Exception) {
                 Log.w(TAG, "Screensaver photo failed: ${e.message}")

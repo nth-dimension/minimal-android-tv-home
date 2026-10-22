@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.service.dreams.DreamService
 import android.view.KeyEvent
 import android.view.WindowManager
+import dev.minimal.tvhome.ui.ImageLoader
 
 /** The TV's screensaver: Unsplash photos, a new one every five minutes. Any button wakes the TV. */
 class PhotoDream : DreamService() {
@@ -12,6 +13,7 @@ class PhotoDream : DreamService() {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        Thread { ImageLoader.installHttpCache(applicationContext) }.start()
         isInteractive = false
         isFullscreen = true
         isScreenBright = true

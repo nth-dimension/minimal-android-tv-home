@@ -82,7 +82,7 @@ Unsplash photos need a free access key, because Unsplash only serves photos to a
    scripts/install.sh --unsplash-key YOUR_ACCESS_KEY
    ```
    The key is saved to `local.properties`, which git ignores, and built into the app. Don't share the APK.
-3. On the TV, open **Options**, then **Background**, and pick **Unsplash photos**. Choose a topic and how often the photo changes. **New photo now** fetches one right away.
+3. On the TV, open **Options**, then **Background**, and pick **Unsplash photos**. Pick one or more topics (each new photo comes from one of them, chosen at random) and how often the photo changes. **New photo now** fetches one right away.
 
 How it behaves:
 
@@ -95,8 +95,8 @@ How it behaves:
 
 Minimal Home includes a screensaver of Unsplash photos, in the topic picked in Options. It uses the same Unsplash key as the background.
 
-- A new photo every 5 minutes, crossfading in and drifting slowly, with a clock and the photographer's credit.
-- The last 8 photos stay on the TV, so it starts instantly. Offline, or when Unsplash's hourly limit is hit, it cycles through those.
+- The photo changes every 5 minutes, crossfading in and drifting slowly, with a clock and the photographer's credit.
+- A new photo is downloaded every 15 minutes; the changes in between cycle through the last 8, which stay on the TV so it starts instantly and keeps going offline. That keeps an evening of screensaver well inside Unsplash's 50 requests an hour.
 - It only starts when the TV sits idle. Video apps keep the screen awake, so it never interrupts playback. Any button wakes the TV.
 - **Options → Preview screensaver** shows it straight away.
 
@@ -121,6 +121,7 @@ Some apps, such as JioHotstar and YouTube, never publish Continue watching rows.
 
 - Only apps with no Continue watching rows of their own are added, so Netflix and Prime Video keep their own lists.
 - Music (anything with an album), clips under a minute, live streams, and videos past 95% are skipped.
+- Progress is saved when playback pauses, stops or changes title, and every two minutes while it plays.
 - Entries older than 30 days drop off.
 - These entries have no deep link, so opening one opens the app, not the episode.
 - Diagnostics lists everything recorded under *Recorded playbacks*.
@@ -156,6 +157,8 @@ adb shell settings put global private_dns_mode opportunistic   # to switch back
 ./gradlew :app:assembleDebug       # debug APK
 ./gradlew :app:lintDebug           # Android lint
 ```
+
+Posters and Unsplash photos go through Android's HTTP disk cache (48 MB under the app's cache folder), so a restart doesn't re-download them. All bitmaps are decoded through `data/Images.kt`, scaled to what's shown and in 16-bit colour for photos. App banners and icons are scaled once, off the main thread, when the app list loads; the list itself only reloads when a package is installed, removed or updated.
 
 Code layout:
 

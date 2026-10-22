@@ -47,7 +47,7 @@ class WallpaperRepository(private val context: Context, accessKey: String) {
         }
 
     private fun fetchNew(settings: WallpaperSettings, now: Long): Wallpaper {
-        val wallpaper = client.fetchRandom(settings.topic, dir, now)
+        val wallpaper = client.fetchRandom(settings.topics, dir, now)
         metaFile.writeText(WallpaperRules.encode(wallpaper))
         val keep = File(wallpaper.file)
         dir.listFiles()?.filter { it != keep && it != metaFile }?.forEach { it.delete() }

@@ -199,7 +199,7 @@ private fun DeckInfo(item: WatchNextItem, app: TvApp?, position: Int, total: Int
         }
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val icon = rememberDrawableImage("icon:${item.packageName}", app?.icon, 64, 64)
+            val icon = app?.icon
             if (icon != null) {
                 Image(icon, contentDescription = null, modifier = Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
                 Spacer(Modifier.width(10.dp))

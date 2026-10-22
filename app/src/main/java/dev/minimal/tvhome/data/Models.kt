@@ -1,21 +1,24 @@
 package dev.minimal.tvhome.data
 
 import android.content.Intent
-import android.graphics.drawable.Drawable
+import androidx.compose.ui.graphics.ImageBitmap
 
 /** An installed TV app that can be launched from the home screen. */
 data class TvApp(
     val packageName: String,
     val label: String,
-    val banner: Drawable?,
-    val icon: Drawable?,
+    /** Scaled copies of the app's banner and icon, made off the main thread when the app list loads. */
+    val banner: ImageBitmap?,
+    val icon: ImageBitmap?,
     val launchIntent: Intent,
+    /** When the package was last installed or updated; new art comes with a new value. */
+    val updatedAt: Long,
 ) {
-    // Drawables and Intents compare by identity and are recreated on every load. Without this,
-    // every refresh looked like a new app list and redrew every banner on the main thread.
+    // Intents compare by identity and bitmaps are recreated on a reload; compare by what matters,
+    // so an unchanged app list is seen as unchanged and nothing redraws.
     override fun equals(other: Any?): Boolean =
         other is TvApp && other.packageName == packageName && other.label == label &&
-            other.launchIntent.component == launchIntent.component
+            other.updatedAt == updatedAt && other.launchIntent.component == launchIntent.component
 
     override fun hashCode(): Int = packageName.hashCode()
 }

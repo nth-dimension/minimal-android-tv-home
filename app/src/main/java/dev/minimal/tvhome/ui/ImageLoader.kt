@@ -2,41 +2,54 @@ package dev.minimal.tvhome.ui
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.net.http.HttpResponseCache
 import android.util.Log
 import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.graphics.drawable.toBitmap
+import dev.minimal.tvhome.data.Images
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
-/** Small poster loader so the app needs no image library. Memory cache only. */
+/**
+ * Small poster loader so the app needs no image library. Decoded posters sit in a memory cache;
+ * the bytes behind them sit in the system HTTP cache on disk (see [installHttpCache]), so a
+ * restart or a second size of the same poster costs no download.
+ */
 object ImageLoader {
     private const val TAG = "MinimalHome"
-    private const val MAX_BYTES = 8 * 1024 * 1024
+    private const val MAX_BYTES = 8L * 1024 * 1024
     private const val MAX_REDIRECTS = 5
+    private const val HTTP_CACHE_BYTES = 48L * 1024 * 1024
+    private const val MAX_FAILURES = 200
 
-    private val cache = object : LruCache<String, Bitmap>(32 * 1024) {
+    private val cache = object : LruCache<String, Bitmap>(24 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount / 1024
     }
 
-    /** Why the last attempt at each URI failed, for the diagnostics screen. */
+    /** Why the last attempt at each URI failed, for the diagnostics screen. Bounded: URLs are often signed. */
     private val failures = ConcurrentHashMap<String, String>()
 
     fun failureFor(uri: String): String? = failures[uri]
+
+    /** Gives HttpURLConnection a disk cache for every image and Unsplash call. Safe to call again. */
+    fun installHttpCache(context: Context) {
+        if (HttpResponseCache.getInstalled() != null) return
+        runCatching { HttpResponseCache.install(File(context.cacheDir, "http"), HTTP_CACHE_BYTES) }
+            .onFailure { Log.w(TAG, "No HTTP cache: ${it.message}") }
+    }
 
     /** Tries each URI in order (thumbnail, then poster) and returns the first that decodes. */
     suspend fun load(context: Context, uris: List<String>, targetWidthPx: Int): Bitmap? {
@@ -46,10 +59,10 @@ object ImageLoader {
             cache.get(key)?.let { return it }
             val bitmap = withContext(Dispatchers.IO) {
                 try {
-                    open(context, uri).use { decode(it.readCapped(), targetWidthPx) }
-                        ?: throw IOException("not a decodable image")
+                    Images.decodeStream(targetWidthPx) { open(context, uri) } ?: throw IOException("not a decodable image")
                 } catch (e: Exception) {
                     val reason = e.message ?: e.javaClass.simpleName
+                    if (failures.size >= MAX_FAILURES) failures.clear()
                     if (failures.put(uri, reason) == null) Log.w(TAG, "Image failed: ${describe(uri)}: $reason")
                     null
                 }
@@ -68,12 +81,13 @@ object ImageLoader {
 
     private fun open(context: Context, uri: String): InputStream {
         val parsed = Uri.parse(uri)
-        return when (parsed.scheme?.lowercase()) {
+        val stream = when (parsed.scheme?.lowercase()) {
             "https", "http" -> openHttp(uri)
             "content", "android.resource", "file" ->
                 context.contentResolver.openInputStream(parsed) ?: throw IOException("provider returned nothing")
             else -> throw IOException("unsupported scheme")
         }
+        return Capped(stream)
     }
 
     /** Follows redirects by hand, since HttpURLConnection won't cross between http and https. */
@@ -89,7 +103,13 @@ object ImageLoader {
             }
             val code = conn.responseCode
             when (code) {
-                in 200..299 -> return conn.inputStream
+                in 200..299 -> {
+                    if (conn.contentLengthLong > MAX_BYTES) {
+                        conn.disconnect()
+                        throw IOException("image too large")
+                    }
+                    return conn.inputStream
+                }
                 301, 302, 303, 307, 308 -> {
                     val location = conn.getHeaderField("Location") ?: throw IOException("HTTP $code without Location")
                     conn.disconnect()
@@ -105,24 +125,18 @@ object ImageLoader {
         throw IOException("too many redirects")
     }
 
-    private fun InputStream.readCapped(): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val buffer = ByteArray(16 * 1024)
-        while (true) {
-            val n = read(buffer)
-            if (n < 0) break
-            out.write(buffer, 0, n)
-            if (out.size() > MAX_BYTES) throw IOException("image too large")
-        }
-        return out.toByteArray()
-    }
+    /** Stops reading past [MAX_BYTES], for sources that send no length. */
+    private class Capped(stream: InputStream) : FilterInputStream(stream) {
+        private var total = 0L
 
-    private fun decode(bytes: ByteArray, targetWidthPx: Int): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= targetWidthPx) sample *= 2
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+        override fun read(): Int = super.read().also { if (it >= 0) count(1) }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) count(it) }
+
+        private fun count(n: Int) {
+            total += n
+            if (total > MAX_BYTES) throw IOException("image too large")
+        }
     }
 }
 
@@ -134,10 +148,3 @@ fun rememberRemoteImage(uris: List<String>, targetWidthPx: Int): ImageBitmap? {
     }
     return image
 }
-
-@Composable
-fun rememberDrawableImage(key: String, drawable: Drawable?, widthPx: Int, heightPx: Int): ImageBitmap? =
-    // Keyed on the drawable's shared state, not its instance: each app-list load makes new instances.
-    remember(key, drawable?.constantState ?: drawable) {
-        drawable?.let { runCatching { it.toBitmap(widthPx, heightPx).asImageBitmap() }.getOrNull() }
-    }

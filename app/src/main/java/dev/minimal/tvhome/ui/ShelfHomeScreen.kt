@@ -233,10 +233,10 @@ private fun TopShelf(
 /** Blurred, dimmed art behind the shelf: the featured poster, or the focused app's banner. */
 @Composable
 private fun Backdrop(imageUris: List<String>, app: TvApp?) {
-    val px = with(LocalDensity.current) { 480.dp.roundToPx() }
+    // Blurred by 32 dp afterwards, so a small decode looks the same and costs a fraction to blur.
+    val px = with(LocalDensity.current) { 240.dp.roundToPx() }
     val remote = rememberRemoteImage(imageUris, px)
-    val banner = rememberDrawableImage("banner:${app?.packageName}", app?.banner, 320, 180)
-    val image: ImageBitmap? = remote ?: banner
+    val image: ImageBitmap? = remote ?: app?.banner
     Crossfade(targetState = image, animationSpec = tween(450), label = "backdrop") { img ->
         if (img != null) {
             Image(

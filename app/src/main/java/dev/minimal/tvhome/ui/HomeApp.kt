@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,22 +43,28 @@ fun HomeApp(viewModel: HomeViewModel, homePresses: SharedFlow<Unit>) {
         }
     }
 
-    val actions = HomeActions(
-        openApp = { Launch.app(context, it) },
-        openWatchNext = { Launch.watchNext(context, it, state.appsByPackage[it.packageName]) },
-        showMenu = { menuPackage = it.packageName },
-        openAllApps = { screen = Screen.AllApps },
-        openSettings = { Launch.settings(context) },
-        openOptions = { screen = Screen.Options },
-        openSearch = { screen = Screen.Search },
-        openTimer = { showTimer = true },
-    )
+    // One actions object for the life of the screen: a new one on every redraw would make both
+    // layouts redraw with it. The lambdas read the latest state through this holder.
+    val latest = rememberUpdatedState(state)
+    val actions = remember(context) {
+        HomeActions(
+            openApp = { Launch.app(context, it) },
+            openWatchNext = { Launch.watchNext(context, it, latest.value.appsByPackage[it.packageName]) },
+            showMenu = { menuPackage = it.packageName },
+            openAllApps = { screen = Screen.AllApps },
+            openSettings = { Launch.settings(context) },
+            openOptions = { screen = Screen.Options },
+            openSearch = { screen = Screen.Search },
+            openTimer = { showTimer = true },
+        )
+    }
+    val wallpaperImage = rememberWallpaperImage(state.wallpaper)
 
     HomeTheme {
         Box(Modifier.fillMaxSize()) {
             // The photo background shows behind the home layouts only; Options and Diagnostics stay plain.
             val wallpaper = state.wallpaper?.takeIf { screen == Screen.Home || screen == Screen.AllApps }
-            if (wallpaper != null) WallpaperBackground(wallpaper, state.style)
+            if (wallpaper != null) WallpaperBackground(wallpaperImage, state.style)
 
             when (screen) {
                 Screen.Home -> {

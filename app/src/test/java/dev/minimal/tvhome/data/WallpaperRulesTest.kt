@@ -31,13 +31,32 @@ class WallpaperRulesTest {
     }
 
     @Test fun staleWhenMissingOrTopicChanged() {
-        val settings = WallpaperSettings(BackgroundMode.Unsplash, WallpaperTopic.Nature, WallpaperInterval.Hourly)
+        val settings = WallpaperSettings(BackgroundMode.Unsplash, setOf(WallpaperTopic.Nature), WallpaperInterval.Hourly)
         assertTrue(WallpaperRules.isStale(null, settings, 0))
         assertTrue(WallpaperRules.isStale(saved(WallpaperTopic.Architecture), settings, 1_000_001L))
     }
 
+    @Test fun notStaleWhileItsTopicIsStillChosen() {
+        val both = WallpaperSettings(BackgroundMode.Unsplash, setOf(WallpaperTopic.Nature, WallpaperTopic.Architecture), WallpaperInterval.Hourly)
+        assertFalse(WallpaperRules.isStale(saved(WallpaperTopic.Architecture), both, 1_000_001L))
+    }
+
+    @Test fun topicSetsRoundTripAndNeverEmpty() {
+        val set = setOf(WallpaperTopic.Ocean, WallpaperTopic.Space)
+        assertEquals(set, WallpaperTopic.parseSet(WallpaperTopic.encodeSet(set)))
+        assertEquals(setOf(WallpaperTopic.Nature), WallpaperTopic.parseSet(""))
+        assertEquals(setOf(WallpaperTopic.Nature), WallpaperTopic.parseSet("Bogus"))
+        assertEquals(setOf(WallpaperTopic.Mountains), WallpaperTopic.parseSet("Mountains")) // old single-topic value
+    }
+
+    @Test fun lastTopicCannotBeRemoved() {
+        assertEquals(setOf(WallpaperTopic.Nature), setOf(WallpaperTopic.Nature).toggled(WallpaperTopic.Nature))
+        assertEquals(setOf(WallpaperTopic.Nature, WallpaperTopic.Ocean), setOf(WallpaperTopic.Nature).toggled(WallpaperTopic.Ocean))
+        assertEquals(setOf(WallpaperTopic.Ocean), setOf(WallpaperTopic.Nature, WallpaperTopic.Ocean).toggled(WallpaperTopic.Nature))
+    }
+
     @Test fun staleOnlyAfterIntervalPasses() {
-        val hourly = WallpaperSettings(BackgroundMode.Unsplash, WallpaperTopic.Nature, WallpaperInterval.Hourly)
+        val hourly = WallpaperSettings(BackgroundMode.Unsplash, setOf(WallpaperTopic.Nature), WallpaperInterval.Hourly)
         val daily = hourly.copy(interval = WallpaperInterval.Daily)
         val w = saved(at = 10 * hour)
         assertFalse(WallpaperRules.isStale(w, hourly, 10 * hour + hour - 1))

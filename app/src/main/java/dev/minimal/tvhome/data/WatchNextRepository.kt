@@ -30,7 +30,7 @@ class WatchNextRepository(private val context: Context) {
     /** Every row we can see, unfiltered. Used by the diagnostics screen. */
     fun queryRaw(): List<WatchNextItem> {
         val cursor = context.contentResolver.query(
-            TvContract.WatchNextPrograms.CONTENT_URI, null, null, null, null,
+            TvContract.WatchNextPrograms.CONTENT_URI, PROJECTION, null, null, null,
         ) ?: return emptyList()
         return cursor.use { c ->
             buildList {
@@ -64,6 +64,13 @@ class WatchNextRepository(private val context: Context) {
     companion object {
         /** Defined by the system TV provider; not exposed as a public SDK constant. */
         const val READ_TV_LISTINGS = "android.permission.READ_TV_LISTINGS"
+
+        /** Only the columns read below; the table has forty-odd, some of them blobs. */
+        private val PROJECTION = arrayOf(
+            "_id", "package_name", "title", "episode_title", "season_display_number", "episode_display_number",
+            "thumbnail_uri", "poster_art_uri", "last_playback_position_millis", "duration_millis",
+            "last_engagement_time_utc_millis", "intent_uri", "watch_next_type", "browsable",
+        )
     }
 
     private fun Cursor.string(column: String): String? {

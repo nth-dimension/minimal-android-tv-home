@@ -12,19 +12,17 @@ class ScreensaverRulesTest {
 
     @Test fun swapsEveryFiveMinutes() = assertEquals(5 * min, ScreensaverRules.SWAP_MS)
 
-    @Test fun fetchesWhenNothingSaved() = assertTrue(ScreensaverRules.shouldFetch(null, 0))
+    @Test fun fetchesEveryFifteenMinutes() = assertEquals(15 * min, ScreensaverRules.FETCH_EVERY_MS)
 
-    @Test fun waitsAfterARecentFetch() = assertFalse(ScreensaverRules.shouldFetch(10 * min, 12 * min))
+    @Test fun fetchesWhenNothingSaved() = assertTrue(ScreensaverRules.shouldFetch(null, 0, saved = 0))
 
-    @Test fun fetchesNearTheFiveMinuteMark() = assertTrue(ScreensaverRules.shouldFetch(10 * min, 14 * min + 31_000))
+    @Test fun fetchesWhenOnlyOneSaved() = assertTrue(ScreensaverRules.shouldFetch(10 * min, 12 * min, saved = 1))
 
-    @Test fun fetchesIfTheClockWentBack() = assertTrue(ScreensaverRules.shouldFetch(10 * min, 5 * min))
+    @Test fun cyclesSavedPhotosBetweenFetches() = assertFalse(ScreensaverRules.shouldFetch(10 * min, 20 * min, saved = 4))
 
-    @Test fun waitIsTheRestOfFiveMinutes() = assertEquals(3 * min, ScreensaverRules.waitBeforeFetch(10 * min, 12 * min))
+    @Test fun fetchesNearTheFifteenMinuteMark() = assertTrue(ScreensaverRules.shouldFetch(10 * min, 24 * min + 31_000, saved = 4))
 
-    @Test fun noWaitWhenDue() = assertEquals(0L, ScreensaverRules.waitBeforeFetch(10 * min, 16 * min))
-
-    @Test fun noWaitWithNothingSaved() = assertEquals(0L, ScreensaverRules.waitBeforeFetch(null, 0))
+    @Test fun fetchesIfTheClockWentBack() = assertTrue(ScreensaverRules.shouldFetch(10 * min, 5 * min, saved = 4))
 
     @Test fun addPutsNewestFirstAndTrims() {
         val pool = (1..8).map { photo("p$it") }

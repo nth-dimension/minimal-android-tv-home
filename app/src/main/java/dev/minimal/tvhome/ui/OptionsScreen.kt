@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Row
@@ -40,6 +42,7 @@ import dev.minimal.tvhome.data.HomeStyle
 import dev.minimal.tvhome.data.WallpaperInterval
 import dev.minimal.tvhome.data.WallpaperSettings
 import dev.minimal.tvhome.data.WallpaperTopic
+import dev.minimal.tvhome.data.toggled
 
 private val OptionShape = RoundedCornerShape(14.dp)
 
@@ -107,14 +110,8 @@ fun OptionsScreen(
                     )
                 }
             } else {
-                item { SubLabel("Topic") }
-                item {
-                    ChoiceRow {
-                        WallpaperTopic.entries.forEach { topic ->
-                            ChoiceButton(topic.label, wp.topic == topic) { onWallpaperSettings(wp.copy(topic = topic)) }
-                        }
-                    }
-                }
+                item { SubLabel("Topics (pick any number)") }
+                item { TopicPicker(wp, onWallpaperSettings) }
                 item { SubLabel("New photo") }
                 item {
                     ChoiceRow {
@@ -145,7 +142,7 @@ fun OptionsScreen(
         item {
             Hint(
                 if (state.unsplashConfigured) {
-                    "Unsplash photos, a new one every 5 minutes, in the topic picked " +
+                    "Unsplash photos, a new one every 5 minutes, from the topics picked " +
                         (if (wp.mode == BackgroundMode.Unsplash) "above. " else "below. ") +
                         "The TV starts it after it sits idle; scripts/install.sh makes it the TV's screensaver."
                 } else {
@@ -156,19 +153,26 @@ fun OptionsScreen(
         }
         // The topic row lives under Background when photos are on there; otherwise it shows here.
         if (state.unsplashConfigured && wp.mode != BackgroundMode.Unsplash) {
-            item { SubLabel("Topic") }
-            item {
-                ChoiceRow {
-                    WallpaperTopic.entries.forEach { topic ->
-                        ChoiceButton(topic.label, wp.topic == topic) { onWallpaperSettings(wp.copy(topic = topic)) }
-                    }
-                }
-            }
+            item { SubLabel("Topics (pick any number)") }
+            item { TopicPicker(wp, onWallpaperSettings) }
         }
         item { QuietButton("Preview screensaver", onPreviewScreensaver) }
 
         item { Spacer(Modifier.height(16.dp)) }
         item { QuietButton("Diagnostics", onDiagnostics) }
+    }
+}
+
+/** Topic toggles, wrapping over several lines. Each photo comes from one chosen topic at random. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TopicPicker(wp: WallpaperSettings, onWallpaperSettings: (WallpaperSettings) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        WallpaperTopic.entries.forEach { topic ->
+            ChoiceButton(topic.label, topic in wp.topics) {
+                onWallpaperSettings(wp.copy(topics = wp.topics.toggled(topic)))
+            }
+        }
     }
 }
 

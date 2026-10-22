@@ -84,12 +84,14 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
     val targets by produceState(emptyList<TvApp>(), state.apps, state.recent) {
         value = withContext(Dispatchers.IO) { Launch.searchTargets(context, state.apps, state.recent) }
     }
-    val everywhere = remember { Launch.globalSearchIntent(context, "") != null }
-    val voiceIntent = remember {
-        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH)
-            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a title")
-            .takeIf { context.packageManager.resolveActivity(it, 0) != null }
+    val everywhere by produceState(false) { value = withContext(Dispatchers.IO) { Launch.globalSearchIntent(context, "") != null } }
+    val voiceIntent by produceState<Intent?>(null) {
+        value = withContext(Dispatchers.IO) {
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH)
+                .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a title")
+                .takeIf { context.packageManager.resolveActivity(it, 0) != null }
+        }
     }
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
@@ -124,9 +126,9 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
                     },
                     modifier = Modifier.weight(1f).focusRequester(field),
                 )
-                if (voiceIntent != null) {
+                voiceIntent?.let { intent ->
                     Spacer(Modifier.width(16.dp))
-                    QuietButton("Voice", onClick = { runCatching { voice.launch(voiceIntent) } })
+                    QuietButton("Voice", onClick = { runCatching { voice.launch(intent) } })
                 }
             }
         }

@@ -1,6 +1,5 @@
 package dev.minimal.tvhome.ui
 
-import android.graphics.BitmapFactory
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -26,22 +25,31 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.minimal.tvhome.data.HomeStyle
+import dev.minimal.tvhome.data.Images
 import dev.minimal.tvhome.data.Wallpaper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Full-screen photo behind the home screen, with a dark overlay so text stays readable.
- * The previous photo stays up until the next one is decoded, then they crossfade.
+ * The decoded wallpaper. Lives above the screen switch in [HomeApp], so leaving for Options or
+ * Search and coming back shows the same bitmap again rather than decoding it from disk anew.
+ * The previous photo stays until the next one is decoded.
  */
 @Composable
-fun WallpaperBackground(wallpaper: Wallpaper, style: HomeStyle) {
+fun rememberWallpaperImage(wallpaper: Wallpaper?): ImageBitmap? {
     val context = LocalContext.current
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(wallpaper.file) {
+    LaunchedEffect(wallpaper?.file) {
+        val file = wallpaper?.file ?: run { image = null; return@LaunchedEffect }
         val screenWidth = context.resources.displayMetrics.widthPixels
-        withContext(Dispatchers.IO) { decode(wallpaper.file, screenWidth) }?.let { image = it }
+        withContext(Dispatchers.IO) { Images.decodeFile(file, screenWidth)?.asImageBitmap() }?.let { image = it }
     }
+    return image
+}
+
+/** Full-screen photo behind the home screen, with a dark overlay so text stays readable. */
+@Composable
+fun WallpaperBackground(image: ImageBitmap?, style: HomeStyle) {
     Crossfade(targetState = image, animationSpec = tween(900), label = "wallpaper") { img ->
         if (img != null) {
             Box(Modifier.fillMaxSize()) {
@@ -79,11 +87,3 @@ private fun scrim(style: HomeStyle): Brush = when (style) {
         1f to Palette.Background.copy(alpha = 0.88f),
     )
 }
-
-private fun decode(path: String, targetWidth: Int): ImageBitmap? = runCatching {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(path, bounds)
-    var sample = 1
-    while (bounds.outWidth / (sample * 2) >= targetWidth) sample *= 2
-    BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
-}.getOrNull()

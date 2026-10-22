@@ -24,18 +24,22 @@ object PlayHistory {
     private val state = MutableStateFlow<List<PlayedItem>>(emptyList())
     private var loaded = false
 
-    fun items(context: Context): StateFlow<List<PlayedItem>> {
-        ensureLoaded(context)
-        return state.asStateFlow()
-    }
+    /** Current entries. Empty until [load] has run on a background thread. */
+    val items: StateFlow<List<PlayedItem>> = state.asStateFlow()
+
+    /** Reads the saved history. Disk work: call off the main thread. */
+    fun load(context: Context) = ensureLoaded(context)
 
     @Synchronized
     fun record(context: Context, item: PlayedItem) {
         ensureLoaded(context)
-        val next = Ranking.upsertPlayed(state.value, item)
-        if (next == state.value) return
+        val previous = state.value
+        val next = Ranking.upsertPlayed(previous, item)
+        if (next == previous) return
         state.value = next
-        save(context, next)
+        // Artwork only becomes unused when an entry drops out, so only scan the folder then.
+        val kept = next.map { it.packageName to it.title.lowercase() }.toSet()
+        save(context, next, pruneArt = previous.any { (it.packageName to it.title.lowercase()) !in kept })
     }
 
     /** Saves a scaled copy of the app's artwork and returns its file URI. Same title, same file. */
@@ -54,14 +58,14 @@ object PlayHistory {
         state.value = runCatching { decode(File(context.filesDir, FILE).readText()) }.getOrDefault(emptyList())
     }
 
-    private fun save(context: Context, items: List<PlayedItem>) {
+    private fun save(context: Context, items: List<PlayedItem>, pruneArt: Boolean) {
         runCatching {
             val file = File(context.filesDir, FILE)
             val tmp = File(context.filesDir, "$FILE.tmp")
             tmp.writeText(encode(items))
             tmp.renameTo(file)
         }
-        // Drop artwork no entry refers to any more.
+        if (!pruneArt) return
         val keep = items.flatMap { it.imageUris }.mapNotNull { Uri.parse(it).lastPathSegment }.toSet()
         File(context.filesDir, ART_DIR).listFiles()?.filter { it.name !in keep }?.forEach { it.delete() }
     }

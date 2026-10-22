@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import dev.minimal.tvhome.data.TvApp
 import dev.minimal.tvhome.data.WatchNextItem
 import dev.minimal.tvhome.data.WatchNextResult
 
+@Stable
 class HomeActions(
     val openApp: (TvApp) -> Unit,
     val openWatchNext: (WatchNextItem) -> Unit,
