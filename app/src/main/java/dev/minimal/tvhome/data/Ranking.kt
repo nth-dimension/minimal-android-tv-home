@@ -7,6 +7,10 @@ object Ranking {
     /** At most this many entries per app, so one binge doesn't push every other app off the row. */
     const val WATCH_NEXT_PER_APP = 3
     const val RECENT_LIMIT = 10
+
+    /** Apps left out of Continue watching. YouTube's played-item art was often another video's. */
+    val HIDDEN_FROM_WATCH_NEXT = setOf("com.google.android.youtube.tv")
+
     const val PLAYED_LIMIT = 30
     const val PLAYED_MAX_AGE_MILLIS = 30L * 24 * 60 * 60 * 1000
 
@@ -38,7 +42,8 @@ object Ranking {
     }
 
     /**
-     * Newest first. Drops rows the user dismissed (not browsable) and rows without a title.
+     * Newest first. Drops rows the user dismissed (not browsable), rows without a title, and rows
+     * from [HIDDEN_FROM_WATCH_NEXT] apps.
      * Keeps one entry per show per app, so a series doesn't fill the row with episodes, and at
      * most [perApp] entries per app, so the apps you use most don't crowd out the rest.
      */
@@ -49,7 +54,7 @@ object Ranking {
     ): List<WatchNextItem> {
         val perAppCount = HashMap<String, Int>()
         return items.asSequence()
-            .filter { it.browsable && it.title.isNotBlank() }
+            .filter { it.browsable && it.title.isNotBlank() && it.packageName !in HIDDEN_FROM_WATCH_NEXT }
             .sortedByDescending { it.lastEngagementMillis }
             .distinctBy { it.packageName to it.title.trim().lowercase() }
             .filter { item ->

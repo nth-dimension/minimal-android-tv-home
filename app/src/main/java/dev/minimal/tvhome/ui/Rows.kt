@@ -27,6 +27,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.minimal.tvhome.data.Wallpaper
 import kotlinx.coroutines.delay
 import java.util.Date
 
@@ -64,12 +65,21 @@ fun HintRow(text: String) {
 }
 
 @Composable
-fun TopBar(onSearch: () -> Unit, onTimer: () -> Unit, onSettings: () -> Unit, onOptions: () -> Unit) {
+fun TopBar(
+    onSearch: () -> Unit,
+    onTimer: () -> Unit,
+    onSettings: () -> Unit,
+    onOptions: () -> Unit,
+    wallpaper: Wallpaper? = null,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = HorizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Clock(MaterialTheme.typography.headlineSmall.copy(shadow = OnPhotoShadow))
+        Column {
+            Clock(MaterialTheme.typography.headlineSmall.copy(shadow = OnPhotoShadow))
+            if (wallpaper != null) WallpaperCredit(wallpaper, compact = true)
+        }
         Spacer(Modifier.weight(1f))
         // Left or Right past the end of the bar stays put; otherwise focus search would pick
         // whatever card happens to be nearest on the rows below.

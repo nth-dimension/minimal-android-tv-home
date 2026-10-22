@@ -54,6 +54,7 @@ class WatchNextRepository(private val context: Context) {
                             intentUri = c.string("intent_uri"),
                             type = c.long("watch_next_type")?.toInt() ?: -1,
                             browsable = (c.long("browsable") ?: 1L) != 0L,
+                            description = c.string("short_description"),
                         ),
                     )
                 }
@@ -69,7 +70,7 @@ class WatchNextRepository(private val context: Context) {
         private val PROJECTION = arrayOf(
             "_id", "package_name", "title", "episode_title", "season_display_number", "episode_display_number",
             "thumbnail_uri", "poster_art_uri", "last_playback_position_millis", "duration_millis",
-            "last_engagement_time_utc_millis", "intent_uri", "watch_next_type", "browsable",
+            "last_engagement_time_utc_millis", "intent_uri", "watch_next_type", "browsable", "short_description",
         )
     }
 

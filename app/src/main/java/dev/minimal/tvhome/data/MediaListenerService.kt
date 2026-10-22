@@ -56,7 +56,12 @@ class MediaListenerService : NotificationListenerService() {
     }
 
     private fun track(controllers: List<MediaController>) {
-        val current = controllers.filter { it.packageName != packageName }.associateBy { it.sessionToken }
+        // Hidden apps would never be shown, so their plays aren't recorded either. (Qualified:
+        // NotificationListenerService has its own nested Ranking class.)
+        val hidden = dev.minimal.tvhome.data.Ranking.HIDDEN_FROM_WATCH_NEXT
+        val current = controllers
+            .filter { it.packageName != packageName && it.packageName !in hidden }
+            .associateBy { it.sessionToken }
         (tracked.keys - current.keys).forEach { token -> tracked.remove(token)?.stop() }
         current.forEach { (token, controller) ->
             if (token !in tracked) tracked[token] = Tracked(controller).also { it.start() }

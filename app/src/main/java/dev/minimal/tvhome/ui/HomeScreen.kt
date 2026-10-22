@@ -1,10 +1,8 @@
 package dev.minimal.tvhome.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -14,6 +12,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -24,6 +23,7 @@ import dev.minimal.tvhome.HomeState
 import dev.minimal.tvhome.data.TvApp
 import dev.minimal.tvhome.data.WatchNextItem
 import dev.minimal.tvhome.data.WatchNextResult
+import kotlinx.coroutines.launch
 
 @Stable
 class HomeActions(
@@ -59,6 +59,20 @@ fun HomeScreen(state: HomeState, resetKey: Int, actions: HomeActions) {
     val rowBelowDeck = if (state.recent.isNotEmpty()) FirstRow.Recent else FirstRow.Favorites
     fun belowDeckIf(row: FirstRow, index: Int) =
         if (watchNext.isNotEmpty() && row == rowBelowDeck && index == 0) Modifier.focusRequester(belowDeck) else Modifier
+    // The carousel is tall enough that the row below can start off-screen, where it isn't
+    // composed yet and can't take focus. Scroll it in first, then focus its first app.
+    val scope = rememberCoroutineScope()
+    val focusBelowDeck: () -> Boolean = {
+        belowDeck.tryRequestFocus() || run {
+            val watchIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "watch" }?.index
+                ?: return@run false
+            scope.launch {
+                listState.animateScrollToItem(watchIndex + 1)
+                focusWhenReady({ belowDeck.tryRequestFocus() })
+            }
+            true
+        }
+    }
 
     // On launch, and on every Home or Back press: jump to the top and focus the first card.
     // Rows scroll back to their start too, so the first card exists to take focus.
@@ -79,7 +93,7 @@ fun HomeScreen(state: HomeState, resetKey: Int, actions: HomeActions) {
         contentPadding = PaddingValues(top = 32.dp, bottom = 64.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        item(key = "top") { TopBar(actions.openSearch, actions.openTimer, actions.openSettings, actions.openOptions) }
+        item(key = "top") { TopBar(actions.openSearch, actions.openTimer, actions.openSettings, actions.openOptions, state.wallpaper) }
 
         if (state.watchNext is WatchNextResult.NoPermission) {
             item(key = "watch-hint") {
@@ -88,18 +102,15 @@ fun HomeScreen(state: HomeState, resetKey: Int, actions: HomeActions) {
         }
         if (watchNext.isNotEmpty()) {
             item(key = "watch") {
-                Column {
-                    RowTitle("Continue watching")
-                    WatchNextDeck(
-                        items = watchNext,
-                        appsByPackage = state.appsByPackage,
-                        resetKey = resetKey,
-                        onOpen = actions.openWatchNext,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        focusRequester = if (firstRow == FirstRow.WatchNext) firstFocus else null,
-                        onDown = { belowDeck.tryRequestFocus() },
-                    )
-                }
+                // No row title: the carousel starts right under the top bar.
+                WatchNextDeck(
+                    items = watchNext,
+                    appsByPackage = state.appsByPackage,
+                    resetKey = resetKey,
+                    onOpen = actions.openWatchNext,
+                    focusRequester = if (firstRow == FirstRow.WatchNext) firstFocus else null,
+                    onDown = focusBelowDeck,
+                )
             }
         }
 

@@ -36,6 +36,8 @@ data class WatchNextItem(
     val intentUri: String?,
     val type: Int,
     val browsable: Boolean,
+    /** The app's short blurb for the show, when it publishes one. */
+    val description: String? = null,
 )
 
 sealed interface WatchNextResult {

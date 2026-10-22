@@ -105,7 +105,8 @@ fun HomeApp(viewModel: HomeViewModel, homePresses: SharedFlow<Unit>) {
                 }
             }
 
-            if (wallpaper != null && screen == Screen.Home) {
+            // Minimal shows the credit under its clock instead.
+            if (wallpaper != null && screen == Screen.Home && state.style == HomeStyle.Shelf) {
                 WallpaperCredit(wallpaper, Modifier.align(Alignment.BottomEnd))
             }
 

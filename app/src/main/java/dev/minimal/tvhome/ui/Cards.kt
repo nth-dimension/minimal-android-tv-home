@@ -131,9 +131,12 @@ fun TextCard(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** Poster (or title placeholder), optional source-app badge, and progress bar. Fills its parent. */
+/**
+ * Poster (or title placeholder), optional source-app badge, and progress bar. Fills its parent.
+ * [showTitle] false leaves the placeholder blank, for callers that draw the title themselves.
+ */
 @Composable
-internal fun PosterArt(item: WatchNextItem, app: TvApp?, width: Dp, showBadge: Boolean) {
+internal fun PosterArt(item: WatchNextItem, app: TvApp?, width: Dp, showBadge: Boolean, showTitle: Boolean = true) {
     val posterPx = with(LocalDensity.current) { width.roundToPx() }
     val poster = rememberRemoteImage(item.imageUris, posterPx)
     val badge = if (showBadge) app?.icon else null
@@ -145,7 +148,9 @@ internal fun PosterArt(item: WatchNextItem, app: TvApp?, width: Dp, showBadge: B
                 modifier = Modifier.fillMaxSize().background(Palette.SurfaceHigh).padding(16.dp),
                 contentAlignment = Alignment.BottomStart,
             ) {
-                Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (showTitle) {
+                    Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
         if (badge != null) {

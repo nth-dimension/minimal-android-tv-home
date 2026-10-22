@@ -33,8 +33,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -49,19 +49,23 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.minimal.tvhome.data.TvApp
 import dev.minimal.tvhome.data.WatchNextItem
+import kotlin.math.abs
+import kotlin.math.sign
 
 private val DeckCardWidth = 480.dp
 private val DeckCardHeight = 270.dp
 private val DeckShape = RoundedCornerShape(16.dp)
 
-/** How far each card behind the front one peeks out to the right. */
-private val PeekOffset = 32.dp
-private const val BEHIND = 3
+/** How far a card sits from the centre, and how big it is, by its distance in steps (0, 1, 2, 3). */
+private val StepOffsets = listOf(0.dp, 280.dp, 440.dp, 560.dp)
+private val StepScales = listOf(1f, 0.615f, 0.48f, 0.345f)
+private const val SIDE = 2
 
 /**
- * Continue watching as a deck of big cards: the selected show in front, the next few stacked
- * behind it. Left and right move through the deck; select opens the front card.
- * One focus stop, so Up and Down move between rows as before.
+ * Continue watching as a carousel: the selected show in the centre, its neighbours smaller and
+ * tucked under it on either side, its title and description on the tile. Left and right move
+ * through the carousel; select opens the centre card. One focus stop, so Up and Down move between
+ * rows as before.
  */
 @Composable
 fun WatchNextDeck(
@@ -80,23 +84,19 @@ fun WatchNextDeck(
     val current = index.coerceIn(0, (items.size - 1).coerceAtLeast(0))
     val front = items.getOrNull(current) ?: return
 
-    Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = HorizontalPadding),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The card stack is the focusable part, not the whole row: focus then moves down to the
-        // first app below it, not to whichever app sits under the middle of the screen.
+    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // The card strip is the focusable part, not the title below it.
         val focusModifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
         Box(
             Modifier
-                .width(DeckCardWidth + PeekOffset * BEHIND)
-                .height(DeckCardHeight + 16.dp)
+                .fillMaxWidth()
+                .height(DeckCardHeight + 24.dp)
                 .then(focusModifier)
                 .onFocusChanged { focused = it.isFocused }
                 .onKeyEvent { event ->
                     when (event.key) {
                         Key.DirectionRight -> {
-                            // Swallow presses at the end so focus doesn't jump off the deck.
+                            // Swallow presses at the end so focus doesn't jump off the carousel.
                             if (event.type == KeyEventType.KeyDown && current < items.lastIndex) index = current + 1
                             true
                         }
@@ -110,8 +110,8 @@ fun WatchNextDeck(
                             true
                         }
                         Key.DirectionDown -> {
-                            // The deck is wide, so plain focus search lands on whichever app sits
-                            // under its middle. Go to the first app of the next row instead.
+                            // The carousel is full width, so plain focus search lands on whichever
+                            // app sits under its middle. Go to the first app of the next row instead.
                             if (onDown == null) return@onKeyEvent false
                             if (event.type == KeyEventType.KeyDown) downHandled = onDown()
                             downHandled
@@ -120,9 +120,10 @@ fun WatchNextDeck(
                     }
                 }
                 .focusable(),
+            contentAlignment = Alignment.Center,
         ) {
-            // Only cards near the front are composed: one leaving on the left, the front, and those behind.
-            for (i in (current - 1).coerceAtLeast(0)..(current + BEHIND + 1).coerceAtMost(items.lastIndex)) {
+            // Only cards near the centre are composed: those showing, plus one fading out each side.
+            for (i in (current - SIDE - 1).coerceAtLeast(0)..(current + SIDE + 1).coerceAtMost(items.lastIndex)) {
                 val item = items[i]
                 key(item.id) {
                     DeckCard(
@@ -134,34 +135,30 @@ fun WatchNextDeck(
                 }
             }
         }
-        Spacer(Modifier.width(32.dp))
-        DeckInfo(front, appsByPackage[front.packageName], position = current + 1, total = items.size)
     }
 }
 
-/** One card, placed by its depth: below 0 it slides out left, 0 is the front, 1..3 stack behind. */
+/** One card, placed by its depth: 0 is the centre, negative to the left, positive to the right. */
 @Composable
 private fun BoxScope.DeckCard(item: WatchNextItem, app: TvApp?, depth: Float, focused: Boolean) {
-    val d by animateFloatAsState(depth.coerceIn(-1f, BEHIND + 1f), tween(320), label = "deck")
-    val peekPx = with(LocalDensity.current) { PeekOffset.toPx() }
-    val widthPx = with(LocalDensity.current) { DeckCardWidth.toPx() }
+    val d by animateFloatAsState(depth.coerceIn(-SIDE - 1f, SIDE + 1f), tween(320), label = "deck")
+    val stepsPx = with(LocalDensity.current) { StepOffsets.map { it.toPx() } }
     val focusScale by animateFloatAsState(if (focused) 1.03f else 1f, tween(160), label = "focus")
+    val distance = abs(d)
     Box(
         Modifier
-            .align(Alignment.CenterStart)
-            .zIndex(-d)
+            .align(Alignment.Center)
+            .zIndex(-distance)
             .graphicsLayer {
-                transformOrigin = TransformOrigin(1f, 0.5f)
-                if (d < 0f) {
-                    translationX = d * widthPx * 0.5f
-                    alpha = (1f + d).coerceIn(0f, 1f)
-                } else {
-                    val s = (1f - 0.1f * d) * (if (d < 0.5f) focusScale else 1f)
-                    scaleX = s
-                    scaleY = s
-                    translationX = d * peekPx
-                    alpha = if (d > BEHIND) (BEHIND + 1f - d).coerceIn(0f, 1f) else 1f
-                }
+                // Offsets between whole steps are interpolated, so cards glide while animating.
+                val step = distance.toInt().coerceAtMost(StepOffsets.lastIndex - 1)
+                val t = distance - step
+                translationX = sign(d) * (stepsPx[step] + (stepsPx[step + 1] - stepsPx[step]) * t)
+                val scale = StepScales[step] + (StepScales[step + 1] - StepScales[step]) * t
+                val s = scale * (if (distance < 0.5f) focusScale else 1f)
+                scaleX = s
+                scaleY = s
+                alpha = if (distance > SIDE) (SIDE + 1f - distance).coerceIn(0f, 1f) else 1f
             }
             .size(DeckCardWidth, DeckCardHeight)
             .clip(DeckShape)
@@ -171,50 +168,65 @@ private fun BoxScope.DeckCard(item: WatchNextItem, app: TvApp?, depth: Float, fo
                 DeckShape,
             ),
     ) {
-        PosterArt(item, app, DeckCardWidth, showBadge = true)
-        // Cards further back are darker, so the front one reads as on top.
-        val scrim = (0.22f * d).coerceIn(0f, 0.7f)
+        PosterArt(item, app, DeckCardWidth, showBadge = false, showTitle = false)
+        // The text sits on the art, over a gradient: full on the centre card, fading out on the
+        // way to the sides, where the cards are mostly tucked away anyway.
+        val textAlpha = (1f - distance).coerceIn(0f, 1f)
+        if (textAlpha > 0f) TileText(item, app, Modifier.graphicsLayer { alpha = textAlpha })
+        // Cards further out are darker, so the centre one reads as on top.
+        val scrim = (0.3f * distance).coerceIn(0f, 0.7f)
         if (scrim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = scrim)))
     }
 }
 
+private val TileGradient = Brush.verticalGradient(
+    0f to Color.Transparent,
+    0.4f to Color.Black.copy(alpha = 0.55f),
+    1f to Color.Black.copy(alpha = 0.9f),
+)
+
+/** Title, app and episode line, and description, bottom-left on the tile above the progress bar. */
 @Composable
-private fun DeckInfo(item: WatchNextItem, app: TvApp?, position: Int, total: Int) {
-    Column(Modifier.padding(end = HorizontalPadding)) {
+private fun BoxScope.TileText(item: WatchNextItem, app: TvApp?, modifier: Modifier) {
+    Column(
+        modifier
+            .align(Alignment.BottomStart)
+            .fillMaxWidth()
+            .background(TileGradient)
+            .padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 16.dp),
+    ) {
         Text(
             item.title,
-            style = MaterialTheme.typography.headlineSmall.copy(shadow = OnPhotoShadow),
-            maxLines = 3,
+            style = MaterialTheme.typography.titleLarge.copy(shadow = OnPhotoShadow),
+            color = Palette.Text,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        item.subtitle?.let {
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val icon = app?.icon
+            if (icon != null) {
+                Image(icon, contentDescription = null, modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)))
+                Spacer(Modifier.width(8.dp))
+            }
+            val meta = listOfNotNull(app?.label ?: item.packageName, item.subtitle)
+            Text(
+                meta.joinToString("  ·  "),
+                style = MaterialTheme.typography.labelMedium,
+                color = Palette.TextDim,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        item.description?.let {
             Spacer(Modifier.height(6.dp))
             Text(
                 it,
-                style = MaterialTheme.typography.titleSmall.copy(shadow = OnPhotoShadow),
+                style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextDim,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val icon = app?.icon
-            if (icon != null) {
-                Image(icon, contentDescription = null, modifier = Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
-                Spacer(Modifier.width(10.dp))
-            }
-            Text(
-                app?.label ?: item.packageName,
-                style = MaterialTheme.typography.bodyMedium.copy(shadow = OnPhotoShadow),
-                color = Palette.TextDim,
-            )
-        }
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "$position of $total",
-            style = MaterialTheme.typography.labelMedium.copy(shadow = OnPhotoShadow),
-            color = Palette.TextDim,
-        )
     }
 }

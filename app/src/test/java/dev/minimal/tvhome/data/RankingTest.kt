@@ -73,6 +73,13 @@ class RankingTest {
         assertEquals(3, Ranking.WATCH_NEXT_PER_APP)
     }
 
+    @Test fun watchNextLeavesOutHiddenApps() {
+        val ranked = Ranking.rankWatchNext(
+            listOf(item(1, "Song", 30, pkg = "com.google.android.youtube.tv"), item(2, "Show", 20, pkg = "netflix")),
+        )
+        assertEquals(listOf("Show"), ranked.map { it.title })
+    }
+
     @Test fun mergeLastUsedKeepsLatestPerPackage() {
         val merged = Ranking.mergeLastUsed(listOf("a" to 5L, "b" to 3L, "a" to 9L, "a" to 1L))
         assertEquals(mapOf("a" to 9L, "b" to 3L), merged)

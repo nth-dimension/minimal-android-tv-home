@@ -63,14 +63,22 @@ fun WallpaperBackground(image: ImageBitmap?, style: HomeStyle) {
 /** Soft shadow for text drawn straight onto a photo. */
 val OnPhotoShadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 8f)
 
-/** Unsplash asks apps to credit the photographer wherever a photo is shown. */
+/**
+ * Unsplash asks apps to credit the photographer wherever a photo is shown. [compact] is the
+ * smaller, fainter line that sits under the clock; otherwise it sits in the bottom corner.
+ */
 @Composable
-fun WallpaperCredit(wallpaper: Wallpaper, modifier: Modifier = Modifier) {
+fun WallpaperCredit(wallpaper: Wallpaper, modifier: Modifier = Modifier, compact: Boolean = false) {
+    val base = MaterialTheme.typography.labelSmall
     Text(
         text = "Photo by ${wallpaper.photographer} on Unsplash",
-        style = MaterialTheme.typography.labelSmall.copy(shadow = OnPhotoShadow),
-        color = Palette.Text.copy(alpha = 0.75f),
-        modifier = modifier.padding(end = HorizontalPadding, bottom = 20.dp),
+        style = base.copy(
+            shadow = OnPhotoShadow,
+            fontSize = if (compact) base.fontSize * 0.75f else base.fontSize,
+            lineHeight = if (compact) base.lineHeight * 0.75f else base.lineHeight,
+        ),
+        color = Palette.Text.copy(alpha = if (compact) 0.5f else 0.75f),
+        modifier = if (compact) modifier else modifier.padding(end = HorizontalPadding, bottom = 20.dp),
     )
 }
 
