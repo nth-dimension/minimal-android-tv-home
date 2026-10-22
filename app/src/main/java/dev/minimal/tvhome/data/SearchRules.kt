@@ -20,6 +20,11 @@ object SearchRules {
         "com.apple.atve.sony.appletv" to "https://tv.apple.com/search?term=%s",
         "com.apple.atve.androidtv.appletv" to "https://tv.apple.com/search?term=%s",
         "in.startv.hotstar" to "https://www.hotstar.com/in/explore?search_query=%s",
+        // Fire TV builds of the same apps. Not yet tried on a Fire TV; a link the app refuses
+        // falls back to opening the app.
+        "com.amazon.firetv.youtube" to "https://www.youtube.com/results?search_query=%s",
+        "com.amazon.avod" to "https://app.primevideo.com/search?phrase=%s",
+        "com.apple.atve.amazon.appletv" to "https://tv.apple.com/search?term=%s",
     )
 
     /** Apps that answer ACTION_SEARCH but don't search titles or videos. */

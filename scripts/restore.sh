@@ -20,8 +20,25 @@ done
 
 require_device
 
+if is_fire_tv; then
+  # Amazon's launcher was never disabled; Home goes back to it once our redirect service is off.
+  services="$(accessibility_services)"
+  if tr ':' '\n' <<<"$services" | grep -qx "$REDIRECT"; then
+    remaining="$(tr ':' '\n' <<<"$services" | grep -vx "$REDIRECT" | paste -sd ':' -)"
+    "$ADB" shell settings put secure enabled_accessibility_services "'$remaining'"
+    # Fire OS treats accessibility as one switch; some apps (Prime Video) behave differently while it's on.
+    [[ -z "$remaining" ]] && "$ADB" shell settings put secure accessibility_enabled 0
+    echo "Home redirect service off; Home opens Amazon's home screen again."
+  else
+    echo "Home redirect service was already off."
+  fi
+  "$ADB" shell am start -n "$AMAZON_HOME" >/dev/null 2>&1 || true
+fi
+
 enabled=0
+is_fire_tv && enabled=1   # nothing to re-enable; skip the Google TV launcher loop below
 for p in "${STOCK_LAUNCHERS[@]}"; do
+  is_fire_tv && break
   # A launcher another tool removed for this user has to be put back before it can be enabled.
   if ! is_installed "$p" && "$ADB" shell pm list packages -u | tr -d '\r' | grep -qx "package:$p"; then
     "$ADB" shell cmd package install-existing --user 0 "$p" >/dev/null 2>&1 || true

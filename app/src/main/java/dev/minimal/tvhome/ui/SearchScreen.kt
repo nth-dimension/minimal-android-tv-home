@@ -56,6 +56,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.minimal.tvhome.HomeState
 import dev.minimal.tvhome.data.Launch
+import dev.minimal.tvhome.data.Platform
 import dev.minimal.tvhome.data.SearchRules
 import dev.minimal.tvhome.data.TvApp
 import dev.minimal.tvhome.data.WatchNextItem
@@ -85,6 +86,7 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
         value = withContext(Dispatchers.IO) { Launch.searchTargets(context, state.apps, state.recent) }
     }
     val everywhere by produceState(false) { value = withContext(Dispatchers.IO) { Launch.globalSearchIntent(context, "") != null } }
+    val platform = remember { Platform.name(context) }
     val voiceIntent by produceState<Intent?>(null) {
         value = withContext(Dispatchers.IO) {
             Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -135,7 +137,7 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
 
         if (q.isEmpty()) {
             item(key = "hint") {
-                HintRow("Type a title or a video. Then pick an app to search in, or search everywhere on Google TV.")
+                HintRow("Type a title or a video. Then pick an app to search in" + (if (everywhere) ", or search everywhere on $platform." else "."))
             }
         }
 
@@ -153,7 +155,7 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
                     if (everywhere) {
                         item(key = "everywhere") {
                             TextCard(
-                                "All of Google TV",
+                                "All of $platform",
                                 onClick = { Launch.globalSearch(context, q) },
                                 modifier = if (targets.isEmpty()) Modifier.focusRequester(firstResult) else Modifier,
                             )

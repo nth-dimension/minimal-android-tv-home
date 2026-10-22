@@ -1,6 +1,6 @@
 # Minimal Home
 
-An ad-free home screen for Google TV, with two layouts to choose from.
+An ad-free home screen for Google TV, and for Fire TV with some limits (see [Fire TV](#fire-tv)), with two layouts to choose from.
 
 **Minimal** shows three rows and nothing else:
 
@@ -40,6 +40,29 @@ You need a computer with this repo and the TV on the same network.
    On macOS, if `adb connect` says *No route to host* while the TV is on, macOS's Local Network privacy is blocking adb. The scripts restart the adb server and retry; if that doesn't help, allow your terminal under System Settings → Privacy & Security → Local Network.
 
 `adb` is found on your PATH or at `~/Library/Android/sdk/platform-tools/adb`. Set `ADB=` to override. The build uses Android Studio's bundled Java if no other is installed.
+
+## Fire TV
+
+Fire OS is Android underneath, so the same APK runs, but Amazon keeps the Home button for its own launcher and refuses to let that launcher be disabled. Minimal Home gets around it the way Projectivy and *Home on Fire* do: an accessibility service watches for Amazon's home screen coming to the front and opens Minimal Home over it. Amazon's screen shows for a moment first, about a quarter of a second on Fire OS 8 and a few seconds on Fire OS 7, which holds back any app opened from Home. Nothing on the TV is disabled, so there is nothing to restore.
+
+**Which Fire TVs.** Ones on Fire OS 7 (Android 9) or Fire OS 8 (Android 11): the Fire TV Stick HD (2024), Stick 4K and 4K Max, the Cubes, and Fire TV Edition televisions. Not the sticks on Amazon's Linux-based Vega OS (Fire TV Stick 4K Select 2025, Stick HD 2026, Stick 4K 3rd gen 2026): they can't install Android apps at all. Settings → My Fire TV → About → Software version tells you which.
+
+**Setup.**
+
+1. Settings → My Fire TV → Developer options → turn on *ADB debugging* and *Apps from unknown sources*. If Developer options is hidden, open *About*, select the device name line and press OK seven times.
+2. The IP is under Settings → My Fire TV → About → Network. Then `adb connect <ip>:5555` and accept the prompt on the TV.
+3. `scripts/install.sh`. It notices the Fire TV, turns the redirect service on over adb (Fire OS's own Accessibility settings page often can't), and opens Amazon's home screen once to check that Minimal Home comes over it. If it doesn't, press Home and run `adb logcat -s MinimalHome`: every Amazon launcher window is logged there, and the home one should be named `HomeActivity_vNext`.
+
+**What differs from Google TV.**
+
+- **Continue watching** has only what Minimal Home records itself from media sessions (see [Apps that don't publish](#apps-that-dont-publish)), because Fire OS has no Watch Next table. Apps on Fire TV publish their progress to Amazon's own service, which other apps can't read.
+- **Long-press Home** still opens Amazon's panel (profiles, apps, sleep, settings). That is also the way to Fire TV settings; the **Settings** button in Minimal Home tries the standard settings intent and then Amazon's settings activities.
+- **Apps** include those with only a phone-style launcher entry, since Amazon's home screen shows those too.
+- **Prime Video and some other apps keep their playback controls on screen** while any accessibility service is on; Fire OS treats accessibility as one switch. Reported by Projectivy users on a Fire TV Stick 4K Max; not yet checked here.
+- **Not yet tried on a Fire TV:** the sleep timer's standby (it uses the device-admin lock, as on Google TV), the Unsplash screensaver as the TV's screensaver (set the same way; Fire OS's own settings only list Amazon's, but third-party tools set it over adb), and the search links for Fire TV builds of YouTube, Prime Video and Apple TV.
+- **Fire OS updates** can turn the service off. Run `scripts/install.sh --skip-build` again.
+
+**Undo.** `scripts/restore.sh` turns the service off and Home goes to Amazon's screen again; `--uninstall` removes the app.
 
 ## Undo
 
@@ -139,6 +162,7 @@ Some apps, such as JioHotstar and YouTube, never publish Continue watching rows.
   adb shell am broadcast -a dev.minimal.tvhome.REMOVE_ADMIN -n dev.minimal.tvhome/.data.SleepTimerCommands
   ```
 - **Voice search** and the Assistant button are separate apps and keep working. The stock launcher's own search screen is gone.
+- **Fire TV accessibility.** The Home redirect is an accessibility service, which some apps treat as a sign that a screen reader is on (see [Fire TV](#fire-tv)). It only receives which window came to the front, never what is on screen; `app/src/main/res/xml/home_redirect.xml` asks for nothing more.
 
 ## Ads inside apps
 

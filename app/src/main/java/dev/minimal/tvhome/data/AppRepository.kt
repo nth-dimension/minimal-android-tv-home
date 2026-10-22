@@ -19,14 +19,22 @@ class AppRepository(private val context: Context) {
     private class Art(val updatedAt: Long, val banner: ImageBitmap?, val icon: ImageBitmap?)
 
     fun loadApps(): List<TvApp> {
-        val query = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
-        @Suppress("DEPRECATION")
-        val infos = pm.queryIntentActivities(query, 0)
-        val apps = infos.asSequence()
-            .map { it.activityInfo }
-            .filter { it.packageName != context.packageName && it.packageName !in HIDDEN_PACKAGES }
-            .distinctBy { it.packageName }
-            .map { info ->
+        // Fire TV's own home screen also lists apps that only have a phone-style launcher entry,
+        // and many apps sideloaded there have nothing else. Google TV hides those, so we do too.
+        val categories = if (Platform.isFireTv(context)) {
+            listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)
+        } else {
+            listOf(Intent.CATEGORY_LEANBACK_LAUNCHER)
+        }
+        val entries = categories.flatMap { category ->
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0).map { it.activityInfo to category }
+        }
+        val apps = entries.asSequence()
+            .filter { (info, _) -> info.packageName != context.packageName && info.packageName !in HIDDEN_PACKAGES }
+            // The Leanback entry wins when an app has both: it is the one made for a TV.
+            .distinctBy { (info, _) -> info.packageName }
+            .map { (info, category) ->
                 val updatedAt = runCatching { pm.getPackageInfo(info.packageName, 0).lastUpdateTime }.getOrDefault(0L)
                 val a = artFor(info, updatedAt)
                 TvApp(
@@ -35,7 +43,7 @@ class AppRepository(private val context: Context) {
                     banner = a.banner,
                     icon = a.icon,
                     launchIntent = Intent(Intent.ACTION_MAIN)
-                        .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+                        .addCategory(category)
                         .setClassName(info.packageName, info.name)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
                     updatedAt = updatedAt,
@@ -67,6 +75,10 @@ class AppRepository(private val context: Context) {
             "com.google.android.tungsten.setupwraith",
             "com.google.android.tvlauncher",
             "com.google.android.leanbacklauncher",
+            // Fire TV
+            "com.amazon.tv.launcher",        // Amazon's home screen
+            "com.amazon.firehomestarter",    // starts it after boot
+            "com.amazon.tv.oobe",            // first-run setup
         )
     }
 }

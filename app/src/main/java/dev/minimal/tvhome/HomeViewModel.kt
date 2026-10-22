@@ -15,8 +15,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.minimal.tvhome.data.AppRepository
 import dev.minimal.tvhome.data.HomePrefs
+import dev.minimal.tvhome.data.HomeRedirectService
 import dev.minimal.tvhome.data.HomeStyle
 import dev.minimal.tvhome.data.MediaListenerService
+import dev.minimal.tvhome.data.Platform
 import dev.minimal.tvhome.data.PlayHistory
 import dev.minimal.tvhome.data.PlayedItem
 import dev.minimal.tvhome.data.Ranking
@@ -209,7 +211,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
      * every boot (the activity keeps no saved state) would be worse than the hint row.
      */
     suspend fun shouldAskForTvListings(): Boolean {
-        if (watchNextRepo.hasPermission() || prefs.askedTvListings.first()) return false
+        if (!watchNextRepo.isSupported() || watchNextRepo.hasPermission() || prefs.askedTvListings.first()) return false
         prefs.markTvListingsAsked()
         return true
     }
@@ -245,12 +247,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun hasTvListingsPermission() = watchNextRepo.hasPermission()
 
+    fun hasTvProvider() = watchNextRepo.isSupported()
+
     fun hasPlaybackAccess() = MediaListenerService.hasAccess(context)
+
+    fun isFireTv() = Platform.isFireTv(context)
+
+    fun hasHomeRedirect() = HomeRedirectService.isEnabled(context)
 
     fun playHistory(): List<PlayedItem> = PlayHistory.items.value
 
     private fun registerObserverIfPossible() {
-        if (observerRegistered || !watchNextRepo.hasPermission()) return
+        if (observerRegistered || !watchNextRepo.isSupported() || !watchNextRepo.hasPermission()) return
         observerRegistered = runCatching {
             context.contentResolver.registerContentObserver(
                 TvContract.WatchNextPrograms.CONTENT_URI, true, watchNextObserver,

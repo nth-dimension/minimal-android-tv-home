@@ -68,6 +68,19 @@
             </intent-filter>
         </service>
 
+        <!-- Fire TV only: opens Minimal Home over Amazon's home screen when Home is pressed, since
+             Fire OS won't let its launcher be disabled. Reads no window content. Enabled over adb. -->
+        <service
+            android:name=".data.HomeRedirectService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/home_redirect" />
+        </service>
+
         <!-- Screensaver: Unsplash photos. scripts/install.sh makes it the TV's screensaver. -->
         <service
             android:name=".screensaver.PhotoDream"

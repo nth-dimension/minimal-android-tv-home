@@ -4,6 +4,9 @@ ACTIVITY="$PKG/.MainActivity"
 LISTENER="$PKG/$PKG.data.MediaListenerService"
 ADMIN="$PKG/.data.SleepAdmin"
 DREAM="$PKG/.screensaver.PhotoDream"
+# Fire TV only: the accessibility service that opens Minimal Home when Home brings up Amazon's screen.
+REDIRECT="$PKG/$PKG.data.HomeRedirectService"
+AMAZON_HOME="com.amazon.tv.launcher/.ui.HomeActivity_vNext"
 
 # Where the TV's previous screensaver is remembered, per device, so restore.sh can put it back.
 screensaver_backup() {
@@ -70,3 +73,21 @@ wifi_owned_by_setup() {
 }
 
 is_installed() { "$ADB" shell pm list packages "$1" | tr -d '\r' | grep -qx "package:$1"; }
+
+# Fire OS declares this feature on every Fire TV. (Vega OS sticks aren't Android and never get here.)
+is_fire_tv() { "$ADB" shell pm list features | tr -d '\r' | grep -qx "feature:amazon.hardware.fire_tv"; }
+
+# The accessibility services the TV has on, as a colon-separated list ("null" when unset).
+accessibility_services() {
+  local list
+  list="$("$ADB" shell settings get secure enabled_accessibility_services | tr -d '\r')"
+  [[ "$list" == "null" ]] && list=""
+  echo "$list"
+}
+
+# The package in front right now, e.g. dev.minimal.tvhome. Empty if it can't be read.
+foreground_package() {
+  "$ADB" shell dumpsys activity activities 2>/dev/null | tr -d '\r' \
+    | grep -oE '(mResumedActivity|topResumedActivity|ResumedActivity)[^}]*' | head -1 \
+    | grep -oE '[A-Za-z0-9_.]+/' | head -1 | tr -d '/'
+}

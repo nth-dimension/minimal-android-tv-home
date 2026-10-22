@@ -19,7 +19,8 @@ android {
 
     defaultConfig {
         applicationId = "dev.minimal.tvhome"
-        minSdk = 29
+        // 28 = Android 9, which Fire OS 7 sticks run (Fire TV Stick HD, 4K 1st gen, Cube 2nd gen).
+        minSdk = 28
         targetSdk = 36
         versionCode = 1
         versionName = "0.2.0"

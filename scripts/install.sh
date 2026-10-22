@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds Minimal Home, installs it on the connected TV, grants its permissions,
-# and makes it the Home screen by disabling the stock Google TV launcher.
+# and makes it the Home screen: on Google TV by disabling the stock launcher, on Fire TV
+# (whose launcher can't be disabled) by turning on a service that opens Minimal Home over it.
 #
 #   scripts/install.sh                      build, install, grant, take over Home
 #   scripts/install.sh --skip-build         reuse the last built APK
@@ -42,6 +43,8 @@ if [[ -n "$UNSPLASH_KEY" ]]; then
 fi
 
 require_device
+FIRE_TV=0
+is_fire_tv && FIRE_TV=1 && echo "  Fire TV (Fire OS $("$ADB" shell getprop ro.build.version.name | tr -d '\r'))"
 
 APK="$ROOT/app/build/outputs/apk/release/app-release.apk"
 if [[ $BUILD == 1 ]]; then
@@ -54,8 +57,12 @@ echo "Installing..."
 "$ADB" install -r "$APK" >/dev/null
 
 echo "Granting permissions..."
-"$ADB" shell pm grant "$PKG" android.permission.READ_TV_LISTINGS \
-  || echo "  warning: could not grant READ_TV_LISTINGS; the app will ask on first launch."
+if [[ $FIRE_TV == 1 ]]; then
+  echo "  Fire OS has no Watch Next table; Continue watching comes from playbacks Minimal Home records itself."
+else
+  "$ADB" shell pm grant "$PKG" android.permission.READ_TV_LISTINGS \
+    || echo "  warning: could not grant READ_TV_LISTINGS; the app will ask on first launch."
+fi
 "$ADB" shell appops set "$PKG" GET_USAGE_STATS allow
 "$ADB" shell cmd notification allow_listener "$LISTENER" \
   || echo "  warning: could not grant playback access; Up Next will only show apps' own rows."
@@ -86,7 +93,38 @@ if [[ $SCREENSAVER == 1 ]]; then
   fi
 fi
 
-if [[ $TAKEOVER == 1 ]]; then
+if [[ $TAKEOVER == 1 && $FIRE_TV == 1 ]]; then
+  echo "Taking over Home (Fire TV)..."
+  # Fire OS refuses to disable its launcher and gives the Home button to it. The only route left
+  # to a sideloaded app is an accessibility service that opens Minimal Home whenever Amazon's home
+  # screen comes to the front. Amazon's screen shows for a moment first. Its settings page often
+  # can't toggle services, hence adb. Other services already on are kept.
+  services="$(accessibility_services)"
+  if ! tr ':' '\n' <<<"$services" | grep -qx "$REDIRECT"; then
+    [[ -n "$services" ]] && services="$services:$REDIRECT" || services="$REDIRECT"
+    "$ADB" shell settings put secure enabled_accessibility_services "$services"
+  fi
+  "$ADB" shell settings put secure accessibility_enabled 1
+  # Fire OS may hold back a sideloaded app at boot or in standby; both are best effort and harmless.
+  "$ADB" shell appops set "$PKG" AUTO_START allow >/dev/null 2>&1 || true
+  "$ADB" shell dumpsys deviceidle whitelist "+$PKG" >/dev/null 2>&1 || true
+  if tr ':' '\n' <<<"$(accessibility_services)" | grep -qx "$REDIRECT"; then
+    echo "  Home redirect service is on."
+  else
+    die "could not turn on the Home redirect service. See README > Fire TV."
+  fi
+  # Press "Home" for the user: open Amazon's screen and see whether Minimal Home comes over it.
+  "$ADB" shell am start -n "$AMAZON_HOME" >/dev/null 2>&1 || true
+  sleep 6
+  front="$(foreground_package)"
+  if [[ "$front" == "$PKG" ]]; then
+    echo "  Home opens Minimal Home (after a brief flash of Amazon's screen)."
+  else
+    echo "  warning: after opening Amazon's home screen, ${front:-an unknown app} is in front, not Minimal Home."
+    echo "  Press Home on the remote and watch: adb logcat -s MinimalHome"
+    echo "  Each Amazon launcher window is logged there; if the home one isn't named HomeActivity*, send me that name."
+  fi
+elif [[ $TAKEOVER == 1 ]]; then
   echo "Taking over Home..."
   # Minimal Home must be running before the stock home goes, or Home can land on a factory test app.
   "$ADB" shell am start -n "$ACTIVITY" >/dev/null
@@ -113,8 +151,13 @@ if [[ $TAKEOVER == 1 ]]; then
   echo "  Home opens Minimal Home."
 fi
 
-"$ADB" shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null
+if [[ $FIRE_TV == 1 ]]; then
+  "$ADB" shell am start -n "$ACTIVITY" >/dev/null
+else
+  "$ADB" shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null
+fi
 echo
 echo "Done. Press Home on the remote to check Minimal Home opens."
+[[ $FIRE_TV == 1 ]] && echo "On Fire TV, long-press Home still opens Amazon's panel, with Settings on it."
 [[ $TAKEOVER == 1 ]] && echo "To undo: scripts/restore.sh"
 exit 0

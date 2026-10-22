@@ -2,6 +2,7 @@ package dev.minimal.tvhome.data
 
 import android.app.SearchManager
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -67,7 +68,7 @@ object Launch {
         return start(context, searchIntent(app.packageName, query.trim())) || app(context, app)
     }
 
-    /** Google TV's own search across all apps. Null when the TV has none. */
+    /** The TV's own search across all apps (Google TV's, or Fire TV's if it answers). Null when there is none. */
     fun globalSearchIntent(context: Context, query: String): Intent? =
         Intent(SearchManager.INTENT_ACTION_GLOBAL_SEARCH)
             .putExtra(SearchManager.QUERY, query.trim())
@@ -84,7 +85,18 @@ object Launch {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     fun settings(context: Context): Boolean =
-        start(context, Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        start(context, Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) ||
+            FIRE_TV_SETTINGS.any { start(context, Intent().setComponent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+
+    /**
+     * Fire OS keeps its settings inside the launcher package, and not every build answers the
+     * standard settings intent. Tried in order; the first that exists opens.
+     */
+    private val FIRE_TV_SETTINGS = listOf(
+        ComponentName("com.amazon.tv.launcher", "com.amazon.tv.launcher.ui.MainSettingsActivity"), // Fire OS 7 and 8
+        ComponentName("com.amazon.tv.launcher", "com.amazon.tv.launcher.ui.SettingsActivity"),     // older Fire OS
+        ComponentName("com.amazon.tv.settings.v2", "com.amazon.tv.settings.v2.hud.HudActivity"),   // the Home long-press panel
+    )
 
     fun appInfo(context: Context, packageName: String): Boolean =
         start(

@@ -16,7 +16,13 @@ class WatchNextRepository(private val context: Context) {
         ContextCompat.checkSelfPermission(context, WatchNextRepository.READ_TV_LISTINGS) ==
             PackageManager.PERMISSION_GRANTED
 
+    /** False on Fire OS, which has no TV provider: nothing to read, no permission to ask for. */
+    fun isSupported(): Boolean = Platform.hasTvProvider(context)
+
     fun load(): WatchNextResult {
+        // No provider: an empty table rather than a permission hint nobody can act on. Recorded
+        // playbacks are merged into the empty list, so Continue watching still fills up.
+        if (!isSupported()) return WatchNextResult.Items(emptyList())
         if (!hasPermission()) return WatchNextResult.NoPermission
         return try {
             WatchNextResult.Items(Ranking.rankWatchNext(queryRaw()))
@@ -29,6 +35,7 @@ class WatchNextRepository(private val context: Context) {
 
     /** Every row we can see, unfiltered. Used by the diagnostics screen. */
     fun queryRaw(): List<WatchNextItem> {
+        if (!isSupported()) return emptyList()
         val cursor = context.contentResolver.query(
             TvContract.WatchNextPrograms.CONTENT_URI, PROJECTION, null, null, null,
         ) ?: return emptyList()

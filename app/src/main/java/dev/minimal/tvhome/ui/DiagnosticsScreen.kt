@@ -53,7 +53,16 @@ fun DiagnosticsScreen(viewModel: HomeViewModel, state: HomeState) {
             )?.activityInfo?.packageName
             buildList {
                 add("Default home app: ${home ?: "none"}${if (home == "android") " (chooser, no default set)" else ""}")
-                add("TV listings permission: ${if (viewModel.hasTvListingsPermission()) "granted" else "missing"}")
+                if (viewModel.isFireTv()) {
+                    add("Fire TV: Home button redirect ${if (viewModel.hasHomeRedirect()) "on" else "off (run scripts/install.sh)"}")
+                }
+                add(
+                    "TV listings permission: " + when {
+                        !viewModel.hasTvProvider() -> "not applicable (this TV has no Watch Next table)"
+                        viewModel.hasTvListingsPermission() -> "granted"
+                        else -> "missing"
+                    },
+                )
                 add("Usage access: ${if (state.hasUsageAccess) "granted" else "missing"}")
                 add("Playback access: ${if (viewModel.hasPlaybackAccess()) "granted" else "missing (run scripts/install.sh)"}")
                 add("Installed TV apps: ${state.apps.size}")

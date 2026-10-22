@@ -5,6 +5,7 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Process
 import java.util.concurrent.TimeUnit
 
@@ -13,9 +14,9 @@ class RecentAppsRepository(private val context: Context) {
 
     fun hasAccess(): Boolean {
         val ops = context.getSystemService(AppOpsManager::class.java) ?: return false
-        // The non-deprecated replacement needs a newer API level than our minSdk.
+        // The non-deprecated replacement (unsafeCheckOpNoThrow) needs API 29; Fire OS 7 is API 28.
         @Suppress("DEPRECATION")
-        val mode = ops.unsafeCheckOpNoThrow(
+        val mode = ops.checkOpNoThrow(
             AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName,
         )
         return when (mode) {
@@ -36,7 +37,9 @@ class RecentAppsRepository(private val context: Context) {
         val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, start, end).orEmpty()
         return Ranking.mergeLastUsed(
             stats.map { s ->
-                s.packageName to (if (s.lastTimeVisible > 0) s.lastTimeVisible else s.lastTimeUsed)
+                // lastTimeVisible (API 29) is the better signal; Fire OS 7 is API 28 and has only lastTimeUsed.
+                val visible = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) s.lastTimeVisible else 0L
+                s.packageName to (if (visible > 0) visible else s.lastTimeUsed)
             },
         )
     }
