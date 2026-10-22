@@ -43,7 +43,11 @@ You need a computer with this repo and the TV on the same network.
 
 ## Fire TV
 
-Fire OS is Android underneath, so the same APK runs, but Amazon keeps the Home button for its own launcher and refuses to let that launcher be disabled. Minimal Home gets around it the way Projectivy and *Home on Fire* do: an accessibility service watches for Amazon's home screen coming to the front and opens Minimal Home over it. Amazon's screen shows for a moment first, about a quarter of a second on Fire OS 8 and a few seconds on Fire OS 7, which holds back any app opened from Home. Nothing on the TV is disabled, so there is nothing to restore.
+Fire OS is Android underneath, so the same APK runs, but Amazon keeps the Home button for its own launcher and refuses to let that launcher be disabled. Minimal Home gets around it the way Projectivy and *Home on Fire* do: an accessibility service watches for Amazon's home screen coming to the front and opens Minimal Home over it. Nothing on the TV is disabled, so there is nothing to restore.
+
+Fire OS 7 holds back any app opened right after a Home press, so Minimal Home appears about 4 to 6 seconds after you press Home. During that wait the screen shows Minimal Home's plain dark background, which covers Amazon's home screen and its ads. Fire OS 8 is reported to hold back for about a quarter of a second.
+
+Tried on a Fire TV Stick 4K Max (AFTKA), Fire OS 7.7.1.3, on 2026-10-22: Home from another app, Home from Fire TV settings, the Settings button, and a reboot all land on Minimal Home.
 
 **Which Fire TVs.** Ones on Fire OS 7 (Android 9) or Fire OS 8 (Android 11): the Fire TV Stick HD (2024), Stick 4K and 4K Max, the Cubes, and Fire TV Edition televisions. Not the sticks on Amazon's Linux-based Vega OS (Fire TV Stick 4K Select 2025, Stick HD 2026, Stick 4K 3rd gen 2026): they can't install Android apps at all. Settings → My Fire TV → About → Software version tells you which.
 
@@ -51,15 +55,17 @@ Fire OS is Android underneath, so the same APK runs, but Amazon keeps the Home b
 
 1. Settings → My Fire TV → Developer options → turn on *ADB debugging* and *Apps from unknown sources*. If Developer options is hidden, open *About*, select the device name line and press OK seven times.
 2. The IP is under Settings → My Fire TV → About → Network. Then `adb connect <ip>:5555` and accept the prompt on the TV.
-3. `scripts/install.sh`. It notices the Fire TV, turns the redirect service on over adb (Fire OS's own Accessibility settings page often can't), and opens Amazon's home screen once to check that Minimal Home comes over it. If it doesn't, press Home and run `adb logcat -s MinimalHome`: every Amazon launcher window is logged there, and the home one should be named `HomeActivity_vNext`.
+3. `scripts/install.sh`. It notices the Fire TV, turns the redirect service on over adb (Fire OS's own Accessibility settings page often can't), and opens Amazon's home screen once to check that Minimal Home comes over it. Right after a reinstall the service can take a moment to restart, so that check may miss once; press Home to confirm. If Home still lands on Amazon's screen, run `adb logcat -s MinimalHome`: every Amazon launcher window is logged there, and the home one should be named `HomeActivity_vNext`.
 
 **What differs from Google TV.**
 
-- **Continue watching** has only what Minimal Home records itself from media sessions (see [Apps that don't publish](#apps-that-dont-publish)), because Fire OS has no Watch Next table. Apps on Fire TV publish their progress to Amazon's own service, which other apps can't read.
-- **Long-press Home** still opens Amazon's panel (profiles, apps, sleep, settings). That is also the way to Fire TV settings; the **Settings** button in Minimal Home tries the standard settings intent and then Amazon's settings activities.
-- **Apps** include those with only a phone-style launcher entry, since Amazon's home screen shows those too.
+- **Continue watching** works the same way. Fire OS 7 has the Android TV provider, and JioHotstar publishes its rows there. Apps that don't are covered by the playbacks Minimal Home records itself (see [Apps that don't publish](#apps-that-dont-publish)).
+- **Settings** opens Amazon's settings screen. The standard settings intent can't be used: on Fire OS it opens Amazon's home screen on its Settings tab, which the redirect would cover at once. **Long-press Home** still opens Amazon's panel (profiles, apps, sleep, settings).
+- **Apps** also include sideloaded apps that have only a phone-style launcher entry, plus the Appstore and Silk. Fire OS's other phone-style entries are system plumbing and stay hidden.
+- **Search** has no *All of Fire TV* tile and no **Voice** button, because Fire OS answers neither the global search nor the speech recognition request.
+- **A key pressed during the wait** goes to Amazon's home screen under the cover, so it can open something there. Wait for Minimal Home to appear.
 - **Prime Video and some other apps keep their playback controls on screen** while any accessibility service is on; Fire OS treats accessibility as one switch. Reported by Projectivy users on a Fire TV Stick 4K Max; not yet checked here.
-- **Not yet tried on a Fire TV:** the sleep timer's standby (it uses the device-admin lock, as on Google TV), the Unsplash screensaver as the TV's screensaver (set the same way; Fire OS's own settings only list Amazon's, but third-party tools set it over adb), and the search links for Fire TV builds of YouTube, Prime Video and Apple TV.
+- **Not yet tried on a Fire TV:** the sleep timer's standby (the device-admin grant succeeds), the Unsplash screensaver (set over adb, replacing `com.amazon.ftv.screensaver`; `scripts/restore.sh` puts it back), and the search links for the Fire TV builds of YouTube, Prime Video and Apple TV.
 - **Fire OS updates** can turn the service off. Run `scripts/install.sh --skip-build` again.
 
 **Undo.** `scripts/restore.sh` turns the service off and Home goes to Amazon's screen again; `--uninstall` removes the app.

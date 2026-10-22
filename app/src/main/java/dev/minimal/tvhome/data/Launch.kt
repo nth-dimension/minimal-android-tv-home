@@ -84,17 +84,20 @@ object Launch {
             .putExtra(SearchManager.QUERY, query)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    fun settings(context: Context): Boolean =
-        start(context, Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) ||
-            FIRE_TV_SETTINGS.any { start(context, Intent().setComponent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    fun settings(context: Context): Boolean {
+        val standard = Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (!Platform.isFireTv(context)) return start(context, standard)
+        return FIRE_TV_SETTINGS.any { start(context, Intent().setComponent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } ||
+            start(context, standard)
+    }
 
     /**
-     * Fire OS keeps its settings inside the launcher package, and not every build answers the
-     * standard settings intent. Tried in order; the first that exists opens.
+     * Fire OS keeps its settings inside the launcher package. The standard settings intent opens
+     * Amazon's home screen on its Settings tab (seen on Fire OS 7.7.1.3), which the Home redirect
+     * then covers at once, so Fire TV tries these first, in order.
      */
     private val FIRE_TV_SETTINGS = listOf(
-        ComponentName("com.amazon.tv.launcher", "com.amazon.tv.launcher.ui.MainSettingsActivity"), // Fire OS 7 and 8
-        ComponentName("com.amazon.tv.launcher", "com.amazon.tv.launcher.ui.SettingsActivity"),     // older Fire OS
+        ComponentName("com.amazon.tv.launcher", "com.amazon.tv.launcher.ui.MainSettingsActivity"), // a screen of its own
         ComponentName("com.amazon.tv.settings.v2", "com.amazon.tv.settings.v2.hud.HudActivity"),   // the Home long-press panel
     )
 

@@ -44,7 +44,7 @@ fi
 
 require_device
 FIRE_TV=0
-is_fire_tv && FIRE_TV=1 && echo "  Fire TV (Fire OS $("$ADB" shell getprop ro.build.version.name | tr -d '\r'))"
+is_fire_tv && FIRE_TV=1 && echo "  Fire TV ($("$ADB" shell getprop ro.build.version.name | tr -d '\r'))"
 
 APK="$ROOT/app/build/outputs/apk/release/app-release.apk"
 if [[ $BUILD == 1 ]]; then
@@ -57,12 +57,9 @@ echo "Installing..."
 "$ADB" install -r "$APK" >/dev/null
 
 echo "Granting permissions..."
-if [[ $FIRE_TV == 1 ]]; then
-  echo "  Fire OS has no Watch Next table; Continue watching comes from playbacks Minimal Home records itself."
-else
-  "$ADB" shell pm grant "$PKG" android.permission.READ_TV_LISTINGS \
-    || echo "  warning: could not grant READ_TV_LISTINGS; the app will ask on first launch."
-fi
+# Fire OS 7 ships the Android TV provider too (seen on a Fire TV Stick 4K Max, Fire OS 7.7.1.3).
+"$ADB" shell pm grant "$PKG" android.permission.READ_TV_LISTINGS \
+  || echo "  warning: could not grant READ_TV_LISTINGS; the app will ask on first launch."
 "$ADB" shell appops set "$PKG" GET_USAGE_STATS allow
 "$ADB" shell cmd notification allow_listener "$LISTENER" \
   || echo "  warning: could not grant playback access; Up Next will only show apps' own rows."

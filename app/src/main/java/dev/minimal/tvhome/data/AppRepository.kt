@@ -3,6 +3,7 @@ package dev.minimal.tvhome.data
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
@@ -19,16 +20,23 @@ class AppRepository(private val context: Context) {
     private class Art(val updatedAt: Long, val banner: ImageBitmap?, val icon: ImageBitmap?)
 
     fun loadApps(): List<TvApp> {
-        // Fire TV's own home screen also lists apps that only have a phone-style launcher entry,
-        // and many apps sideloaded there have nothing else. Google TV hides those, so we do too.
-        val categories = if (Platform.isFireTv(context)) {
+        // Many apps sideloaded on a Fire TV have only a phone-style launcher entry, and Amazon's home
+        // shows them. Fire OS's own phone-style entries are mostly plumbing (profile picker,
+        // screensaver, file picker), so of the system ones only the Appstore and Silk are kept.
+        val fireTv = Platform.isFireTv(context)
+        val categories = if (fireTv) {
             listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)
         } else {
             listOf(Intent.CATEGORY_LEANBACK_LAUNCHER)
         }
         val entries = categories.flatMap { category ->
             @Suppress("DEPRECATION")
-            pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0).map { it.activityInfo to category }
+            pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0)
+                .map { it.activityInfo to category }
+                .filter { (info, cat) ->
+                    cat == Intent.CATEGORY_LEANBACK_LAUNCHER || info.packageName in FIRE_TV_SYSTEM_APPS ||
+                        (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
+                }
         }
         val apps = entries.asSequence()
             .filter { (info, _) -> info.packageName != context.packageName && info.packageName !in HIDDEN_PACKAGES }
@@ -68,6 +76,12 @@ class AppRepository(private val context: Context) {
         const val BANNER_WIDTH = 320
         const val BANNER_HEIGHT = 180
         const val ICON_SIZE = 96
+
+        /** Fire OS system apps with only a phone-style entry that are worth a tile. */
+        val FIRE_TV_SYSTEM_APPS = setOf(
+            "com.amazon.venezia", // Appstore
+            "com.amazon.cloud9",  // Silk browser
+        )
 
         /** Stock launcher pieces that should never appear as apps. */
         val HIDDEN_PACKAGES = setOf(
