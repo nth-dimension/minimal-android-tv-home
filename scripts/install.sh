@@ -6,6 +6,7 @@
 #   scripts/install.sh --skip-build         reuse the last built APK
 #   scripts/install.sh --keep-stock-launcher  install and grant only; Home stays stock
 #   scripts/install.sh --unsplash-key KEY   save your Unsplash access key, then build and install
+#   scripts/install.sh --keep-screensaver   leave the TV's screensaver as it is
 #
 # Undo everything with scripts/restore.sh.
 set -euo pipefail
@@ -13,15 +14,17 @@ source "$(dirname "$0")/common.sh"
 
 BUILD=1
 TAKEOVER=1
+SCREENSAVER=1
 UNSPLASH_KEY=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-build) BUILD=0 ;;
     --keep-stock-launcher) TAKEOVER=0 ;;
+    --keep-screensaver) SCREENSAVER=0 ;;
     --unsplash-key)
       [[ $# -ge 2 && -n "$2" ]] || die "--unsplash-key needs a value"
       UNSPLASH_KEY="$2"; shift ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
   shift
@@ -56,6 +59,32 @@ echo "Granting permissions..."
 "$ADB" shell appops set "$PKG" GET_USAGE_STATS allow
 "$ADB" shell cmd notification allow_listener "$LISTENER" \
   || echo "  warning: could not grant playback access; Up Next will only show apps' own rows."
+# Sleep timer: lets the app put the TV into standby (lock screen policy only), and on
+# Android 13+ show its "turns off in 1 minute" warning over other apps.
+"$ADB" shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+"$ADB" shell dpm set-active-admin --user 0 "$ADMIN" >/dev/null 2>&1 || true
+if "$ADB" shell dumpsys device_policy | tr -d '\r' | grep -q "$PKG/.data.SleepAdmin\|$PKG/$PKG.data.SleepAdmin"; then
+  echo "  sleep timer can turn the TV off"
+else
+  echo "  warning: could not make Minimal Home a device admin; the sleep timer can't turn the TV off."
+fi
+
+if [[ $SCREENSAVER == 1 ]]; then
+  echo "Setting the screensaver..."
+  before="$("$ADB" shell settings get secure screensaver_components | tr -d '\r')"
+  if [[ "$before" != "$DREAM" ]]; then
+    mkdir -p "$ROOT/backups"
+    echo "$before" > "$(screensaver_backup)"
+  fi
+  "$ADB" shell settings put secure screensaver_components "$DREAM"
+  "$ADB" shell settings put secure screensaver_enabled 1
+  if [[ "$("$ADB" shell settings get secure screensaver_components | tr -d '\r')" == "$DREAM" ]]; then
+    if [[ "$before" == "$DREAM" ]]; then echo "  screensaver: Unsplash photos"
+    else echo "  screensaver: Unsplash photos (was ${before:-none})"; fi
+  else
+    echo "  warning: could not set the screensaver."
+  fi
+fi
 
 if [[ $TAKEOVER == 1 ]]; then
   echo "Taking over Home..."

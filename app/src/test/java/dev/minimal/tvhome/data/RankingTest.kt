@@ -60,8 +60,17 @@ class RankingTest {
     }
 
     @Test fun watchNextRespectsLimit() {
-        val many = (1..50).map { item(it.toLong(), "Title $it", it.toLong()) }
+        val many = (1..50).map { item(it.toLong(), "Title $it", it.toLong(), pkg = "app$it") }
         assertEquals(Ranking.WATCH_NEXT_LIMIT, Ranking.rankWatchNext(many).size)
+    }
+
+    @Test fun watchNextKeepsAtMostThreePerApp() {
+        val netflix = (1..6).map { item(it.toLong(), "Show $it", 100L + it, pkg = "netflix") }
+        val prime = (1..2).map { item(10L + it, "Film $it", 50L + it, pkg = "prime") }
+        val ranked = Ranking.rankWatchNext(netflix + prime)
+        // The three newest from Netflix, then both from Prime; nothing from Prime is pushed out.
+        assertEquals(listOf("Show 6", "Show 5", "Show 4", "Film 2", "Film 1"), ranked.map { it.title })
+        assertEquals(3, Ranking.WATCH_NEXT_PER_APP)
     }
 
     @Test fun mergeLastUsedKeepsLatestPerPackage() {

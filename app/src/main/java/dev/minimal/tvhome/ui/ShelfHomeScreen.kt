@@ -118,6 +118,7 @@ fun ShelfHomeScreen(state: HomeState, resetKey: Int, actions: HomeActions) {
                 onOpen = actions.openWatchNext,
                 onOptions = actions.openOptions,
                 onSearch = actions.openSearch,
+                onTimer = actions.openTimer,
                 rowState = shelfRow,
                 firstItem = firstShelfItem,
             )
@@ -155,6 +156,7 @@ private fun TopShelf(
     onOpen: (WatchNextItem) -> Unit,
     onOptions: () -> Unit,
     onSearch: () -> Unit,
+    onTimer: () -> Unit,
     rowState: LazyListState,
     firstItem: FocusRequester,
 ) {
@@ -187,6 +189,8 @@ private fun TopShelf(
             Spacer(Modifier.width(16.dp))
             // Left or Right past the end of the bar stays put, instead of jumping to a grid tile.
             QuietButton("Search", onSearch, Modifier.focusProperties { left = FocusRequester.Cancel })
+            Spacer(Modifier.width(12.dp))
+            QuietButton(sleepTimerLabel(rememberSleepMinutesLeft()), onTimer)
             Spacer(Modifier.width(12.dp))
             QuietButton("Options", onOptions, Modifier.focusProperties { right = FocusRequester.Cancel })
         }

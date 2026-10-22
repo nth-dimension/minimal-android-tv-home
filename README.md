@@ -35,7 +35,7 @@ You need a computer with this repo and the TV on the same network.
    ```
    scripts/install.sh
    ```
-   This builds the app, installs it, grants its permissions (TV listings, usage access, and playback access), and disables the stock Google TV launcher so Home opens Minimal Home. It starts Minimal Home before disabling anything, checks afterwards that Home really opens it, and puts the stock launcher back if not. If the TV listings grant fails, the app asks for it once on screen and otherwise shows a hint row.
+   This builds the app, installs it, grants its permissions (TV listings, usage access, and playback access), makes it able to turn the TV off for the sleep timer, sets its Unsplash screensaver (`--keep-screensaver` leaves yours alone), and disables the stock Google TV launcher so Home opens Minimal Home. It starts Minimal Home before disabling anything, checks afterwards that Home really opens it, and puts the stock launcher back if not. If the TV listings grant fails, the app asks for it once on screen and otherwise shows a hint row.
 
    On macOS, if `adb connect` says *No route to host* while the TV is on, macOS's Local Network privacy is blocking adb. The scripts restart the adb server and retry; if that doesn't help, allow your terminal under System Settings → Privacy & Security → Local Network.
 
@@ -47,7 +47,7 @@ You need a computer with this repo and the TV on the same network.
 scripts/restore.sh --reboot
 ```
 
-This re-enables the stock launcher, makes it the Home app again and reboots. Add `--uninstall` to remove Minimal Home too; the script refuses to uninstall unless a stock launcher is enabled, so the TV is never left without a home screen. Nothing is uninstalled from the TV by the install script, only disabled, so restore is always possible.
+This re-enables the stock launcher, makes it the Home app again, puts the TV's previous screensaver back, and reboots. Add `--uninstall` to remove Minimal Home too; the script refuses to uninstall unless a stock launcher is enabled, so the TV is never left without a home screen. Nothing is uninstalled from the TV by the install script, only disabled, so restore is always possible.
 
 ## Removing the TV's own bloat (optional)
 
@@ -68,6 +68,7 @@ Apply a batch, then check Home, Settings, an HDMI input and a streaming app befo
 - **Search** at the top right finds a title or a video. Type with the on-screen keyboard or press **Voice**. As you type, matching shows from Continue watching and matching apps appear. Under *Search for "…" in*, pick an app and it opens its own search with your words filled in, or pick *All of Google TV* to search every app at once. Apps you used most recently come first.
   - Tried on the BRAVIA: **YouTube** and **Prime Video** open straight on results for your words (Prime after its profile picker). **JioHotstar** opens its search page, but you type the words again there. **Netflix** and **Apple TV** take the search link, but they block screenshots, so it's unconfirmed whether they show results or just open. *All of Google TV* shows results from every app.
   - Other apps get a tile only if they accept Android's standard search request. Xstream Play doesn't, so it has no tile.
+- **Timer** at the top right turns the TV off after 10, 15, 20 or 30 minutes. Pick a time, then open any app; the timer keeps running behind it. While it runs, the button reads *Off in 9 min*. A minute before the end a message says the TV is about to turn off. At the end, whatever is playing is paused, so the app keeps its place, and the TV goes into standby. Open **Timer** again to pick a new time or cancel. If the TV is turned off before the timer ends, the timer just clears.
 - **Options** at the top right picks the layout and opens Diagnostics, which shows what the launcher can see on your TV.
 - **Settings** opens system settings. In Minimal it's a button at the top right. In Top Shelf it's the Settings tile in the app grid.
 
@@ -89,6 +90,17 @@ How it behaves:
 - If a download fails, the previous photo stays and Options shows why.
 - A dark overlay keeps text readable. In Top Shelf the photo replaces the blurred poster behind the shelf.
 - The photographer is credited in the bottom-right corner, as Unsplash's API guidelines require. Each photo used is also reported to Unsplash, which the guidelines require too.
+
+## Screensaver
+
+Minimal Home includes a screensaver of Unsplash photos, in the topic picked in Options. It uses the same Unsplash key as the background.
+
+- A new photo every 5 minutes, crossfading in and drifting slowly, with a clock and the photographer's credit.
+- The last 8 photos stay on the TV, so it starts instantly. Offline, or when Unsplash's hourly limit is hit, it cycles through those.
+- It only starts when the TV sits idle. Video apps keep the screen awake, so it never interrupts playback. Any button wakes the TV.
+- **Options → Preview screensaver** shows it straight away.
+
+`scripts/install.sh` makes it the TV's screensaver and remembers the previous one in `backups/`; `scripts/restore.sh` puts that one back. Google TV's own settings may not list third-party screensavers, so the script sets it over adb. A system update can reset it; run the install script again. The TV's idle time before the screensaver starts stays in Settings → System → Energy saver (or Ambient mode, depending on the TV).
 
 ## Check what Continue watching can see
 
@@ -121,6 +133,10 @@ Some apps, such as JioHotstar and YouTube, never publish Continue watching rows.
 - **Factory reset.** Re-enable the setup wizard first (`scripts/restore.sh`), since a reset needs it.
 - **Network debugging is a door into the TV.** It's plaintext on port 5555. When you're done changing things, turn off *USB debugging* and *Wireless debugging* in Developer options and revoke the authorisations. Minimal Home keeps working; turn it back on to update.
 - **System updates** can re-enable the stock launcher. Run `scripts/install.sh --skip-build` again.
+- **Sleep timer and device admin.** To put the TV into standby, Minimal Home is a device admin with one policy, *lock screen*; `scripts/install.sh` turns this on. Android won't uninstall an active device admin, so use `scripts/restore.sh --uninstall`, which removes the admin first. By hand:
+  ```
+  adb shell am broadcast -a dev.minimal.tvhome.REMOVE_ADMIN -n dev.minimal.tvhome/.data.SleepTimerCommands
+  ```
 - **Voice search** and the Assistant button are separate apps and keep working. The stock launcher's own search screen is gone.
 
 ## Ads inside apps
@@ -136,7 +152,7 @@ adb shell settings put global private_dns_mode opportunistic   # to switch back
 ## Development
 
 ```
-./gradlew :app:testDebugUnitTest   # unit tests for ranking, favorites and wallpaper rules
+./gradlew :app:testDebugUnitTest   # unit tests for ranking, favorites, wallpaper and timer rules
 ./gradlew :app:assembleDebug       # debug APK
 ./gradlew :app:lintDebug           # Android lint
 ```
@@ -146,6 +162,12 @@ Code layout:
 - `app/src/main/java/dev/minimal/tvhome/data/`: app list, Continue watching, recent apps, preferences, launching. Sorting rules live in `Ranking.kt`.
 - `app/src/main/java/dev/minimal/tvhome/ui/`: Compose for TV screens. `HomeScreen.kt` is Minimal, `ShelfHomeScreen.kt` is Top Shelf.
 - `scripts/`: install and restore over ADB.
+
+To try the sleep timer without waiting, set one in seconds over adb (adb only; apps can't send this):
+
+```
+adb shell am broadcast -a dev.minimal.tvhome.SLEEP_TIMER_SET --el seconds 90 -n dev.minimal.tvhome/.data.SleepTimerCommands
+```
 
 The release build is signed with your local debug key, which is fine for sideloading onto your own TV.
 

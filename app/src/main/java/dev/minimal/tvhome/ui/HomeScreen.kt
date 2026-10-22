@@ -32,6 +32,7 @@ class HomeActions(
     val openSettings: () -> Unit,
     val openOptions: () -> Unit,
     val openSearch: () -> Unit,
+    val openTimer: () -> Unit,
 )
 
 private enum class FirstRow { WatchNext, Recent, Favorites }
@@ -76,7 +77,7 @@ fun HomeScreen(state: HomeState, resetKey: Int, actions: HomeActions) {
         contentPadding = PaddingValues(top = 32.dp, bottom = 64.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        item(key = "top") { TopBar(actions.openSearch, actions.openSettings, actions.openOptions) }
+        item(key = "top") { TopBar(actions.openSearch, actions.openTimer, actions.openSettings, actions.openOptions) }
 
         if (state.watchNext is WatchNextResult.NoPermission) {
             item(key = "watch-hint") {

@@ -64,7 +64,7 @@ fun HintRow(text: String) {
 }
 
 @Composable
-fun TopBar(onSearch: () -> Unit, onSettings: () -> Unit, onOptions: () -> Unit) {
+fun TopBar(onSearch: () -> Unit, onTimer: () -> Unit, onSettings: () -> Unit, onOptions: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = HorizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
@@ -74,6 +74,8 @@ fun TopBar(onSearch: () -> Unit, onSettings: () -> Unit, onOptions: () -> Unit) 
         // Left or Right past the end of the bar stays put; otherwise focus search would pick
         // whatever card happens to be nearest on the rows below.
         QuietButton("Search", onSearch, Modifier.focusProperties { left = FocusRequester.Cancel })
+        Spacer(Modifier.width(12.dp))
+        QuietButton(sleepTimerLabel(rememberSleepMinutesLeft()), onTimer)
         Spacer(Modifier.width(12.dp))
         QuietButton("Options", onOptions)
         Spacer(Modifier.width(12.dp))

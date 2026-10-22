@@ -3,6 +3,9 @@ package dev.minimal.tvhome.data
 /** Pure sorting and filtering rules for the home screen rows. */
 object Ranking {
     const val WATCH_NEXT_LIMIT = 20
+
+    /** At most this many entries per app, so one binge doesn't push every other app off the row. */
+    const val WATCH_NEXT_PER_APP = 3
     const val RECENT_LIMIT = 10
     const val PLAYED_LIMIT = 30
     const val PLAYED_MAX_AGE_MILLIS = 30L * 24 * 60 * 60 * 1000
@@ -36,15 +39,27 @@ object Ranking {
 
     /**
      * Newest first. Drops rows the user dismissed (not browsable) and rows without a title.
-     * Keeps one entry per show per app, so a series doesn't fill the row with episodes.
+     * Keeps one entry per show per app, so a series doesn't fill the row with episodes, and at
+     * most [perApp] entries per app, so the apps you use most don't crowd out the rest.
      */
-    fun rankWatchNext(items: List<WatchNextItem>, limit: Int = WATCH_NEXT_LIMIT): List<WatchNextItem> =
-        items.asSequence()
+    fun rankWatchNext(
+        items: List<WatchNextItem>,
+        limit: Int = WATCH_NEXT_LIMIT,
+        perApp: Int = WATCH_NEXT_PER_APP,
+    ): List<WatchNextItem> {
+        val perAppCount = HashMap<String, Int>()
+        return items.asSequence()
             .filter { it.browsable && it.title.isNotBlank() }
             .sortedByDescending { it.lastEngagementMillis }
             .distinctBy { it.packageName to it.title.trim().lowercase() }
+            .filter { item ->
+                val n = perAppCount.getOrDefault(item.packageName, 0)
+                perAppCount[item.packageName] = n + 1
+                n < perApp
+            }
             .take(limit)
             .toList()
+    }
 
     /** Collapses usage entries to the latest timestamp per package. */
     fun mergeLastUsed(entries: List<Pair<String, Long>>): Map<String, Long> {

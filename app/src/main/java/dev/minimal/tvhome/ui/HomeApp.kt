@@ -1,5 +1,6 @@
 package dev.minimal.tvhome.ui
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.minimal.tvhome.HomeViewModel
 import dev.minimal.tvhome.data.HomeStyle
 import dev.minimal.tvhome.data.Launch
+import dev.minimal.tvhome.screensaver.ScreensaverPreviewActivity
 import kotlinx.coroutines.flow.SharedFlow
 
 enum class Screen { Home, AllApps, Search, Options, Diagnostics }
@@ -29,11 +31,13 @@ fun HomeApp(viewModel: HomeViewModel, homePresses: SharedFlow<Unit>) {
     var screen by rememberSaveable { mutableStateOf(Screen.Home) }
     var menuPackage by remember { mutableStateOf<String?>(null) }
     var resetKey by remember { mutableIntStateOf(0) }
+    var showTimer by remember { mutableStateOf(false) }
 
     LaunchedEffect(homePresses) {
         homePresses.collect {
             screen = Screen.Home
             menuPackage = null
+            showTimer = false
             resetKey++
         }
     }
@@ -46,6 +50,7 @@ fun HomeApp(viewModel: HomeViewModel, homePresses: SharedFlow<Unit>) {
         openSettings = { Launch.settings(context) },
         openOptions = { screen = Screen.Options },
         openSearch = { screen = Screen.Search },
+        openTimer = { showTimer = true },
     )
 
     HomeTheme {
@@ -82,6 +87,9 @@ fun HomeApp(viewModel: HomeViewModel, homePresses: SharedFlow<Unit>) {
                         onWallpaperSettings = viewModel::setWallpaperSettings,
                         onNewPhoto = { viewModel.refreshWallpaper(force = true) },
                         onDiagnostics = { screen = Screen.Diagnostics },
+                        onPreviewScreensaver = {
+                            runCatching { context.startActivity(Intent(context, ScreensaverPreviewActivity::class.java)) }
+                        },
                     )
                 }
                 Screen.Diagnostics -> {
@@ -92,6 +100,10 @@ fun HomeApp(viewModel: HomeViewModel, homePresses: SharedFlow<Unit>) {
 
             if (wallpaper != null && screen == Screen.Home) {
                 WallpaperCredit(wallpaper, Modifier.align(Alignment.BottomEnd))
+            }
+
+            if (showTimer) {
+                SleepTimerDialog(minutesLeft = rememberSleepMinutesLeft(), onDismiss = { showTimer = false })
             }
 
             val menuApp = menuPackage?.let { state.appsByPackage[it] }

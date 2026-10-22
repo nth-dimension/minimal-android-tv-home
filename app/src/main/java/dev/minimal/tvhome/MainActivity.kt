@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import dev.minimal.tvhome.data.SleepTimer
 import dev.minimal.tvhome.data.WatchNextRepository
 import dev.minimal.tvhome.ui.HomeApp
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SleepTimer.load(this)
         setContent { HomeApp(viewModel, homePresses) }
         lifecycleScope.launch {
             if (viewModel.shouldAskForTvListings()) {
@@ -33,6 +35,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        SleepTimer.load(this)
         viewModel.refresh()
     }
 

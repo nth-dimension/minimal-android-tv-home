@@ -2,6 +2,15 @@
 PKG="dev.minimal.tvhome"
 ACTIVITY="$PKG/.MainActivity"
 LISTENER="$PKG/$PKG.data.MediaListenerService"
+ADMIN="$PKG/.data.SleepAdmin"
+DREAM="$PKG/.screensaver.PhotoDream"
+
+# Where the TV's previous screensaver is remembered, per device, so restore.sh can put it back.
+screensaver_backup() {
+  local serial
+  serial="$("$ADB" get-serialno | tr -d '\r\n' | tr -c 'A-Za-z0-9._-' '_')"
+  echo "$ROOT/backups/screensaver-before-$serial.txt"
+}
 STOCK_LAUNCHERS=(
   "com.google.android.apps.tv.launcherx"      # Google TV home
   "com.google.android.tungsten.setupwraith"   # Google TV setup; re-asserts the stock home

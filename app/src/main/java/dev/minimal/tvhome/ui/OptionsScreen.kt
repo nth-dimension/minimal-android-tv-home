@@ -51,6 +51,7 @@ fun OptionsScreen(
     onWallpaperSettings: (WallpaperSettings) -> Unit,
     onNewPhoto: () -> Unit,
     onDiagnostics: () -> Unit,
+    onPreviewScreensaver: () -> Unit,
 ) {
     val current = state.style
     val wp = state.wallpaperSettings
@@ -139,6 +140,32 @@ fun OptionsScreen(
                 }
             }
         }
+
+        item { SectionLabel("Screensaver") }
+        item {
+            Hint(
+                if (state.unsplashConfigured) {
+                    "Unsplash photos, a new one every 5 minutes, in the topic picked " +
+                        (if (wp.mode == BackgroundMode.Unsplash) "above. " else "below. ") +
+                        "The TV starts it after it sits idle; scripts/install.sh makes it the TV's screensaver."
+                } else {
+                    "The screensaver shows Unsplash photos once an access key is set. " +
+                        "Reinstall with: scripts/install.sh --unsplash-key YOUR_KEY"
+                },
+            )
+        }
+        // The topic row lives under Background when photos are on there; otherwise it shows here.
+        if (state.unsplashConfigured && wp.mode != BackgroundMode.Unsplash) {
+            item { SubLabel("Topic") }
+            item {
+                ChoiceRow {
+                    WallpaperTopic.entries.forEach { topic ->
+                        ChoiceButton(topic.label, wp.topic == topic) { onWallpaperSettings(wp.copy(topic = topic)) }
+                    }
+                }
+            }
+        }
+        item { QuietButton("Preview screensaver", onPreviewScreensaver) }
 
         item { Spacer(Modifier.height(16.dp)) }
         item { QuietButton("Diagnostics", onDiagnostics) }

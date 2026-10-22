@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Re-enables the stock Google TV launcher. Minimal Home stays installed unless --uninstall is given.
 #
-#   scripts/restore.sh               re-enable stock launcher
+#   scripts/restore.sh               re-enable stock launcher and the TV's own screensaver
 #   scripts/restore.sh --uninstall   also remove Minimal Home
 #   scripts/restore.sh --reboot      reboot afterwards (recommended if casting misbehaves)
 set -euo pipefail
@@ -43,7 +43,23 @@ if [[ -n "$stock" ]]; then
   "$ADB" shell cmd package set-home-activity --user 0 "$stock" >/dev/null 2>&1 || true
 fi
 
+# Put the TV's own screensaver back if ours is set.
+if [[ "$("$ADB" shell settings get secure screensaver_components | tr -d '\r')" == "$DREAM" ]]; then
+  backup="$(screensaver_backup)"
+  previous=""
+  [[ -f "$backup" ]] && previous="$(cat "$backup")"
+  [[ -z "$previous" || "$previous" == "null" ]] && \
+    previous="$("$ADB" shell settings get secure screensaver_default_component | tr -d '\r')"
+  if [[ -n "$previous" && "$previous" != "null" ]]; then
+    "$ADB" shell settings put secure screensaver_components "$previous" && echo "Screensaver back to $previous"
+  else
+    "$ADB" shell settings delete secure screensaver_components >/dev/null && echo "Screensaver back to the TV's default"
+  fi
+fi
+
 if [[ $UNINSTALL == 1 ]] && is_installed "$PKG"; then
+  # An active device admin can't be uninstalled; the app drops its own admin on this adb-only command.
+  "$ADB" shell am broadcast -a dev.minimal.tvhome.REMOVE_ADMIN -n "$PKG/.data.SleepTimerCommands" >/dev/null 2>&1 || true
   "$ADB" uninstall "$PKG" >/dev/null && echo "Uninstalled $PKG"
 fi
 
