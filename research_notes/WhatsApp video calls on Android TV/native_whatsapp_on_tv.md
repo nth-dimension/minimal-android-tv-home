@@ -1,6 +1,6 @@
 # Native WhatsApp Android app on Android TV / Google TV as a linked device for USB-webcam video calls
 
-Scope note: the target is a Sony BRAVIA 4K VH21 (Google TV, Android 12, MediaTek, 3 GB RAM) with a Logitech Brio 300. Research date: 2026-10-20. "Accessed 2026-10" marks undated Help Center pages, which showed a © 2026 footer when fetched. Project facts are cited to the local project memory file (`/Users/nilay/.claude/projects/-Users-nilay-Claude-Code-Sessions-minimal-android-tv-home/memory/minimal-tv-home-project.md`, "project notes").
+Scope note: the target is a Sony BRAVIA 4K VH21 (Google TV, Android 12, MediaTek, 3 GB RAM) with a Logitech Brio 300. Research date: 2026-10-20. "Accessed 2026-10" marks undated Help Center pages, which showed a © 2026 footer when fetched. Project facts are cited to the project's own notes ("project notes").
 
 ## 1. Can WhatsApp for Android be linked as a companion device to an existing account (2026), and does that work on Android TV or need phone/tablet hardware?
 
