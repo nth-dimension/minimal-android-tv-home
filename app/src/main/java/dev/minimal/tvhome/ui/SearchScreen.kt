@@ -222,7 +222,9 @@ private fun SearchField(
         textStyle = MaterialTheme.typography.titleLarge.copy(color = Palette.Text),
         cursorBrush = SolidColor(Palette.Accent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+        // Any action, not just Search: Fire TV's keyboard shows Previous and Next instead, and its
+        // Previous (also sent when Back closes it) otherwise wraps focus round to the last tile.
+        keyboardActions = KeyboardActions(onAny = { onSearch() }),
         decorationBox = { inner ->
             Box(
                 Modifier
