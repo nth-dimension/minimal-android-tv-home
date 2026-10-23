@@ -43,6 +43,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -60,7 +65,6 @@ import dev.minimal.tvhome.data.Platform
 import dev.minimal.tvhome.data.SearchRules
 import dev.minimal.tvhome.data.TvApp
 import dev.minimal.tvhome.data.WatchNextItem
-import dev.minimal.tvhome.data.WatchNextResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -100,11 +104,14 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
         if (result.resultCode == Activity.RESULT_OK && !spoken.isNullOrBlank()) query = spoken
     }
 
-    val watchNext = (state.watchNext as? WatchNextResult.Items)?.items.orEmpty()
-    val shows = remember(q, watchNext) { SearchRules.filter(q, watchNext) { listOf(it.title, it.subtitle) } }
+    val shows = remember(q, state.allWatchNext) { SearchRules.filter(q, state.allWatchNext) { listOf(it.title, it.subtitle) } }
     val apps = remember(q, state.apps) { SearchRules.filter(q, state.apps) { listOf(it.label) } }
 
     LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
+
+    // Straight to the first app to search in, not whichever tile is nearest the field.
+    fun toResults(): Boolean =
+        runCatching { firstResult.requestFocus() }.getOrDefault(false) || focusManager.moveFocus(FocusDirection.Down)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -121,12 +128,18 @@ fun SearchScreen(state: HomeState, actions: HomeActions) {
                     onValueChange = { query = it },
                     onSearch = {
                         keyboard?.hide()
-                        // Straight to the first app to search in, not whichever tile is nearest the field.
-                        if (!runCatching { firstResult.requestFocus() }.getOrDefault(false)) {
-                            focusManager.moveFocus(FocusDirection.Down)
+                        toResults()
+                    },
+                    // With the keyboard closed, the text field keeps Down and Right as cursor keys,
+                    // so the remote could never leave it (seen on a BRAVIA, Android 12).
+                    modifier = Modifier.weight(1f).focusRequester(field).onPreviewKeyEvent { e ->
+                        if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (e.key) {
+                            Key.DirectionDown -> toResults()
+                            Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
+                            else -> false
                         }
                     },
-                    modifier = Modifier.weight(1f).focusRequester(field),
                 )
                 voiceIntent?.let { intent ->
                     Spacer(Modifier.width(16.dp))

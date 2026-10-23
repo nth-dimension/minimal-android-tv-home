@@ -55,7 +55,11 @@ object PlayHistory {
     private fun ensureLoaded(context: Context) {
         if (loaded) return
         loaded = true
-        state.value = runCatching { decode(File(context.filesDir, FILE).readText()) }.getOrDefault(emptyList())
+        val saved = runCatching { decode(File(context.filesDir, FILE).readText()) }.getOrDefault(emptyList())
+        // Plays recorded before their app was hidden would never be shown; drop them and their artwork.
+        val shown = saved.filter { it.packageName !in Ranking.HIDDEN_FROM_WATCH_NEXT }
+        state.value = shown
+        if (shown.size < saved.size) save(context, shown, pruneArt = true)
     }
 
     private fun save(context: Context, items: List<PlayedItem>, pruneArt: Boolean) {

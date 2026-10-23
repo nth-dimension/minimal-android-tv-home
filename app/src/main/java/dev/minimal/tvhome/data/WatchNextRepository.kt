@@ -25,7 +25,8 @@ class WatchNextRepository(private val context: Context) {
         if (!isSupported()) return WatchNextResult.Items(emptyList())
         if (!hasPermission()) return WatchNextResult.NoPermission
         return try {
-            WatchNextResult.Items(Ranking.rankWatchNext(queryRaw()))
+            // Every row: Search looks through all of them; the home row is capped when merged.
+            WatchNextResult.Items(Ranking.rankWatchNext(queryRaw(), limit = Int.MAX_VALUE, perApp = Int.MAX_VALUE))
         } catch (e: SecurityException) {
             WatchNextResult.NoPermission
         } catch (e: Exception) {

@@ -155,13 +155,14 @@ object Ranking {
         launchable: Set<String>,
         nowMillis: Long,
         limit: Int = WATCH_NEXT_LIMIT,
+        perApp: Int = WATCH_NEXT_PER_APP,
     ): List<WatchNextItem> {
         val publishers = watchNext.map { it.packageName }.toSet()
         val extra = played
             .filter { it.packageName !in publishers && it.packageName in launchable }
             .filter { nowMillis - it.lastPlayedMillis <= PLAYED_MAX_AGE_MILLIS && isResumable(it) }
             .map { it.toWatchNextItem() }
-        return rankWatchNext(watchNext + extra, limit)
+        return rankWatchNext(watchNext + extra, limit, perApp)
     }
 
     /** Played items have no deep link, so opening one opens its app. Negative ids keep keys apart from real rows. */

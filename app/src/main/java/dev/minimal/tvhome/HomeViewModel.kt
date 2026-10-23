@@ -53,6 +53,8 @@ data class HomeState(
     val apps: List<TvApp> = emptyList(),
     val appsByPackage: Map<String, TvApp> = emptyMap(),
     val watchNext: WatchNextResult = WatchNextResult.Items(emptyList()),
+    /** Every Continue watching entry, not just the few per app that fit on the home row. For Search. */
+    val allWatchNext: List<WatchNextItem> = emptyList(),
     val recent: List<TvApp> = emptyList(),
     val hasUsageAccess: Boolean = true,
     val favorites: List<TvApp> = emptyList(),
@@ -82,9 +84,13 @@ private data class Snapshot(
 ) {
     // Derived once per snapshot, not once per emission of any of the five inputs to the state.
     val appsByPackage: Map<String, TvApp> = apps.associateBy { it.packageName }
+    private val now = System.currentTimeMillis()
     val merged: WatchNextResult = (watchNext as? WatchNextResult.Items)?.let {
-        WatchNextResult.Items(Ranking.mergePlayed(it.items, played, appsByPackage.keys, System.currentTimeMillis()))
+        WatchNextResult.Items(Ranking.mergePlayed(it.items, played, appsByPackage.keys, now))
     } ?: watchNext
+    val all: List<WatchNextItem> = (watchNext as? WatchNextResult.Items)?.let {
+        Ranking.mergePlayed(it.items, played, appsByPackage.keys, now, limit = Int.MAX_VALUE, perApp = Int.MAX_VALUE)
+    }.orEmpty()
 }
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -114,6 +120,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 appsByPackage = byPackage,
                 // Apps that don't publish Watch Next rows still show what you played in them.
                 watchNext = s.merged,
+                allWatchNext = s.all,
                 recent = recentPackages.mapNotNull { byPackage[it] },
                 hasUsageAccess = s.lastUsed != null,
                 favorites = favs.mapNotNull { byPackage[it] },

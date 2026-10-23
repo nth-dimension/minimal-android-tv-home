@@ -73,6 +73,15 @@ class RankingTest {
         assertEquals(3, Ranking.WATCH_NEXT_PER_APP)
     }
 
+    @Test fun searchSeesEveryShowNotJustTheOnesOnTheRow() {
+        // The repository keeps every row; the home row caps them when merged, Search doesn't.
+        val prime = (1..5).map { item(it.toLong(), "Show $it", 100L + it, pkg = "prime") }
+        val all = Ranking.rankWatchNext(prime, limit = Int.MAX_VALUE, perApp = Int.MAX_VALUE)
+        assertEquals(3, Ranking.mergePlayed(all, emptyList(), setOf("prime"), 0).size)
+        val everything = Ranking.mergePlayed(all, emptyList(), setOf("prime"), 0, limit = Int.MAX_VALUE, perApp = Int.MAX_VALUE)
+        assertEquals("Show 1", everything.last().title)
+    }
+
     @Test fun watchNextLeavesOutHiddenApps() {
         val ranked = Ranking.rankWatchNext(
             listOf(item(1, "Song", 30, pkg = "com.google.android.youtube.tv"), item(2, "Show", 20, pkg = "netflix")),

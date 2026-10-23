@@ -115,7 +115,7 @@ Apply a batch, then check Home, Settings, an HDMI input and a streaming app befo
 
 - **Home** or **Back** jumps back to the top of the screen and focuses the first Continue watching card (the first Up Next card in Top Shelf). In Minimal, **Down** from the card deck always goes to the first app of the row below it.
 - **Long-press** any app to pin it, unpin it, move it left or right in Favorites, open its App info, or open Home options.
-- **Search** at the top right finds a title or a video. Type with the on-screen keyboard or press **Voice**. As you type, matching shows from Continue watching and matching apps appear. Under *Search for "…" in*, pick an app and it opens its own search with your words filled in, or pick *All of Google TV* to search every app at once. Apps you used most recently come first.
+- **Search** at the top right finds a title or a video. Type with the on-screen keyboard or press **Voice**. As you type, matching shows and apps appear. Shows come from every app's whole Continue watching list, not only the three per app on the home row. Under *Search for "…" in*, pick an app and it opens its own search with your words filled in, or pick *All of Google TV* to search every app at once. Apps you used most recently come first.
   - Tried on the BRAVIA: **YouTube** and **Prime Video** open straight on results for your words (Prime after its profile picker). **JioHotstar** opens its search page, but you type the words again there. **Netflix** and **Apple TV** take the search link, but they block screenshots, so it's unconfirmed whether they show results or just open. *All of Google TV* shows results from every app.
   - Other apps get a tile only if they accept Android's standard search request. Xstream Play doesn't, so it has no tile.
 - **Timer** at the top right turns the TV off after 10, 15, 20 or 30 minutes. Pick a time, then open any app; the timer keeps running behind it. While it runs, the button reads *Off in 9 min*. A minute before the end a message says the TV is about to turn off. At the end, whatever is playing is paused, so the app keeps its place, and the TV goes into standby. Open **Timer** again to pick a new time or cancel. If the TV is turned off before the timer ends, the timer just clears.
@@ -167,7 +167,7 @@ An app missing from that list does not publish its progress. Minimal Home covers
 
 ### Apps that don't publish
 
-Some apps, such as JioHotstar and YouTube, never publish Continue watching rows. For those, Minimal Home notes what they play while they play it: title, artwork and how far you got. It does this through Android's media sessions, which the TV's own Now Playing controls use too. It needs notification-listener access to see them, which `scripts/install.sh` grants. It does not read notifications.
+Some apps, such as JioHotstar, never publish Continue watching rows. For those, Minimal Home notes what they play while they play it: title, artwork and how far you got. It does this through Android's media sessions, which the TV's own Now Playing controls use too. It needs notification-listener access to see them, which `scripts/install.sh` grants. It does not read notifications.
 
 - Only apps with no Continue watching rows of their own are added, so Netflix and Prime Video keep their own lists.
 - Music (anything with an album), clips under a minute, live streams, and videos past 95% are skipped.
@@ -175,6 +175,7 @@ Some apps, such as JioHotstar and YouTube, never publish Continue watching rows.
 - Entries older than 30 days drop off.
 - These entries have no deep link, so opening one opens the app, not the episode.
 - Diagnostics lists everything recorded under *Recorded playbacks*.
+- YouTube is left out of Continue watching altogether: the artwork it reported was often another video's. Nothing is recorded for it, and plays recorded before that were cleared.
 - Apple TV gives its media session no title, so nothing is recorded for it. It doesn't need to be: once you've watched something, Apple TV publishes its own Continue watching rows, with deep links.
 
 ## Known risks
