@@ -1,6 +1,6 @@
 # Minimal Home
 
-An ad-free home screen for Google TV, and for Fire TV with some limits (see [Fire TV](#fire-tv)), with two layouts to choose from.
+An ad-free home screen for Google TV, with two layouts to choose from. On Fire TV, use just its Unsplash screensaver and keep Amazon's home screen (see [Fire TV](#fire-tv)).
 
 **Minimal** shows three rows and nothing else:
 
@@ -43,6 +43,25 @@ You need a computer with this repo and the TV on the same network.
 
 ## Fire TV
 
+**Recommended: the screensaver only.** Amazon's home screen stays as it is, and the screensaver shows Unsplash photos instead of Amazon's.
+
+```
+scripts/install.sh --screensaver-only
+```
+
+This installs the app and makes it the screensaver, and nothing else: no Home redirect, no accessibility service, no extra permissions. Open Minimal Home from Amazon's app row to pick photo topics under **Options** or preview the screensaver. Fire OS force-stops a screensaver's app each time the screensaver ends, which is harmless when the screensaver is all it does. `scripts/restore.sh --uninstall` puts Amazon's screensaver back and removes the app. Tried on a Fire TV Stick 4K Max, Fire OS 7.7.1.3, on 2026-10-30: the screensaver starts when the stick sits idle (15 minutes there; adb sees it as `contextual_screen_off_timeout`), and any button returns to Amazon's home screen.
+
+For setup, see steps 1 and 2 under [Taking over Home](#taking-over-home-not-recommended) below.
+
+**Fewer ads on Amazon's home screen.** Amazon's home screen has no setting that removes its banner ads and sponsored rows. Turning these off reduces what plays and what's tracked:
+
+- Settings → Preferences → Featured Content: turn off *Allow Video Autoplay* and *Allow Audio Autoplay*.
+- Settings → Preferences → Privacy Settings: turn off *Device Usage Data*, *Collect App Usage Data* and *Interest-based Ads*.
+
+### Taking over Home (not recommended)
+
+This was tried on the stick from 2026-10-22 and rolled back on 2026-10-30, because it didn't hold up in everyday use. The rest of this section describes how it works.
+
 Fire OS is Android underneath, so the same APK runs, but Amazon keeps the Home button for its own launcher and refuses to let that launcher be disabled. Minimal Home gets around it the way Projectivy and *Home on Fire* do: an accessibility service watches for Amazon's home screen coming to the front and opens Minimal Home over it. Nothing on the TV is disabled, so there is nothing to restore.
 
 Fire OS 7 holds back any app opened right after a Home press, so Minimal Home appears about 5 seconds after you press Home. During that wait the screen shows the time and *Opening Minimal Home* on Minimal Home's dark background. It covers Amazon's home screen and its ads, and swallows D-pad and OK presses so they can't open anything on the hidden screen. Fire OS 8 is reported to hold back for about a quarter of a second.
@@ -80,7 +99,7 @@ Stress-tested on a Fire TV Stick 4K Max (AFTKA), Fire OS 7.7.1.3, on 2026-10-22 
 
 **What differs from Google TV.**
 
-- **Screensaver.** Fire TV keeps Amazon's. Fire OS force-stops a screensaver's whole app each time the screensaver ends (it does this to Amazon's own too), and for Minimal Home that would switch the redirect off and drop the sleep timer every time. **Options → Preview screensaver** still works. Moving the screensaver into its own small APK would fix this.
+- **Screensaver.** With the Home takeover, Fire TV keeps Amazon's. Fire OS force-stops a screensaver's whole app each time the screensaver ends (it does this to Amazon's own too), and for Minimal Home that would switch the redirect off and drop the sleep timer every time. **Options → Preview screensaver** still works. Moving the screensaver into its own small APK would fix this. With `--screensaver-only` there's nothing to break, so the screensaver is set.
 - **Continue watching** works the same way. Fire OS 7 has the Android TV provider, and JioHotstar publishes its rows there. Apps that don't are covered by the playbacks Minimal Home records itself (see [Apps that don't publish](#apps-that-dont-publish)), with one gap found so far: **Prime Video on Fire TV gives its media session no title and no length** (seen while a trailer played), so nothing is recorded for it, and its progress stays in the Prime Video app. Netflix has a media session too; whether it carries a title while an episode plays is not yet checked.
 - **Settings** opens Amazon's settings screen. The standard settings intent can't be used: on Fire OS it opens Amazon's home screen on its Settings tab, which the redirect would cover at once. **Long-press Home** still opens Amazon's panel (profiles, apps, sleep, settings).
 - **Apps** also include sideloaded apps that have only a phone-style launcher entry, plus the Appstore and Silk. Fire OS's other phone-style entries are system plumbing and stay hidden, and so does Amazon Shopping, a storefront rather than something to watch.
