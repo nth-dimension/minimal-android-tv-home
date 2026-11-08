@@ -21,3 +21,4 @@ com.hqotas.apps
 - com.adups.fota removed for user 0 on 2026-11-08 (crash loop, ~45% CPU). Undo: adb shell cmd package install-existing com.adups.fota
 com.hisilicon.miracast
 - miracast: disabled 2026-11-08 because launching it switched the TV to Wi-Fi Direct and dropped it off the network (twice). Undo: adb shell pm enable com.hisilicon.miracast
+- 2026-11-08: com.android.vending and com.google.android.gms were found disabled (not by us); re-enabled with pm enable, then force-stop + relaunch fixed a blank Play Store screen.
