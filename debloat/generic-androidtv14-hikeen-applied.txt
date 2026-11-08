@@ -1,0 +1,20 @@
+# Generic Android TV 14 (SmartTV2560F_DEV, Hikeen/HiSilicon, Dolphin OS launcher), 192.168.0.103
+# Disabled 2026-11-08 with: adb shell pm disable-user --user 0 <pkg>
+# Undo with:               adb shell pm enable <pkg>
+com.dolphinos.advertisement
+com.dolphinos.tv.store
+com.tcl.movieark
+com.tcl.movieark.overlay
+com.hikeen.hkhotelmenu
+com.hikeen.tv.factorymenu
+com.factory.factoryautomation
+com.google.android.exoplayer2.demo
+com.hikeen.higallery
+com.hikeen.mediaplayer
+com.hisilicon.android.music
+com.hisilicon.android.videoplayer
+com.hikeen.cleanmaster
+- animation scales: window 1.0 -> 0.5 on 2026-11-08 (undo: settings put global window_animation_scale 1.0)
+com.adups.fota
+com.adups.fota.overlay
+com.hqotas.apps
