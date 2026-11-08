@@ -245,6 +245,10 @@ adb shell am broadcast -a dev.minimal.tvhome.SLEEP_TIMER_SET --el seconds 90 -n 
 
 The release build is signed with your local debug key, which is fine for sideloading onto your own TV.
 
+## Generic Android TV boxes (FLauncher)
+
+`flauncher/` is for a white-label Android TV 14 set (32-bit HiSilicon, Dolphin OS launcher) where Minimal Home wasn't wanted. It builds [FLauncher](https://gitlab.com/etienn01/flauncher) from source without Firebase, with Unsplash wallpapers, and with a few fixes for slow TVs. It also has a health check for that TV, which goes with `debloat/generic-androidtv14-hikeen-applied.txt`. See [flauncher/README.md](flauncher/README.md).
+
 ## WhatsApp TV (separate app, experimental)
 
 `tvchat/` is a second app, *WhatsApp TV*: WhatsApp Web in a full-screen WebView, for chats and calls on the TV with a USB camera such as a Logitech Brio. WhatsApp Web supports voice and video calls in the browser since mid-2026. The app tells WhatsApp it is desktop Chrome, since WhatsApp Web refuses other browsers. That is unofficial, and WhatsApp could stop accepting it.
